@@ -3,18 +3,19 @@ import joblib
 import numpy as np
 import os
 
+# Load model
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 model = joblib.load(os.path.join(BASE_DIR, 'breast_cancer_model.pkl'))
 le = joblib.load(os.path.join(BASE_DIR, 'label_encoder.pkl'))
 threshold = joblib.load(os.path.join(BASE_DIR, 'threshold.pkl'))
 
-
+# Page config
 st.set_page_config(page_title="Breast Cancer Prediction", page_icon="🎗️", layout="wide")
 
 st.title("🎗️ Breast Cancer Prediction")
 st.write("Enter tumor measurements below to predict diagnosis.")
 st.warning("⚠️ This tool is for educational purposes only. Not a substitute for medical advice.")
-st.info("💡 Adjust the values above and click Predict to see the result.")
+st.info("💡 Adjust the values and click Predict to see the result.")
 
 st.divider()
 st.subheader("Enter Tumor Measurements")
@@ -51,7 +52,12 @@ if st.button("Predict", use_container_width=True):
 
     proba = model.predict_proba(input_data)[:, 1][0]
     prediction = 1 if proba >= threshold else 0
-    confidence = proba if prediction == 1 else 1 - proba
+
+    # Fix: confidence always reflects the predicted class
+    if prediction == 1:
+        confidence = proba        # malignant → confidence = malignancy probability
+    else:
+        confidence = 1 - proba    # benign → confidence = benign probability
 
     st.write("**Malignancy Risk Level:**")
     st.progress(float(proba))
@@ -61,10 +67,16 @@ if st.button("Predict", use_container_width=True):
     if prediction == 1:
         st.error("⚠️ Result: Malignant")
         st.write("Please consult a medical professional immediately.")
+        # Borderline warning
+        if proba < 0.60:
+            st.warning("⚠️ Borderline case — further medical testing strongly recommended.")
     else:
         st.success("✅ Result: Benign")
         st.write("No malignancy detected. Regular checkups recommended.")
+        # Borderline warning
+        if proba >= 0.30:
+            st.warning("⚠️ Borderline case — confidence is low. Further medical testing recommended.")
 
     col1, col2 = st.columns(2)
     col1.metric("Malignancy Probability", f"{proba:.1%}")
-    col2.metric("Confidence", f"{confidence:.1%}")
+    col2.metric("Model Confidence", f"{confidence:.1%}")
