@@ -60,10 +60,10 @@ if st.button("Predict", use_container_width=True):
 
     if prediction == 1:
         st.error("⚠️ Result: Malignant")
-        st.write("Please consult a medical professional immediately.")
+        st.metric("Malignancy Probability", f"{proba:.1%}")
     else:
         st.success("✅ Result: Benign")
-        st.write("No malignancy detected. Regular checkups recommended.")
+        st.metric("Benign Probability", f"{1 - proba:.1%}")
 
     col1, col2 = st.columns(2)
     col1.metric("Malignancy Probability", f"{proba:.1%}")
