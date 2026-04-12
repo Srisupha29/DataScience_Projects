@@ -15,10 +15,10 @@ st.set_page_config(page_title="Breast Cancer Prediction", page_icon="🎗️", l
 st.markdown("""
     <style>
     [data-testid="stMetricValue"] {
-        font-size: 20px !important;
+        font-size: 25px !important;
     }
     [data-testid="stMetricLabel"] {
-        font-size: 13px !important;
+        font-size: 18px !important;
     }
     </style>
 """, unsafe_allow_html=True)
