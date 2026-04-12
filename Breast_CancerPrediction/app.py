@@ -50,33 +50,41 @@ if st.button("Predict", use_container_width=True):
         area_worst, compactness_worst, concavity_worst, concave_points_worst
     ]])
 
-    proba = model.predict_proba(input_data)[:, 1][0]
-    prediction = 1 if proba >= threshold else 0
+    proba_benign = model.predict_proba(input_data)[:, 0][0]
+    proba_malignant = model.predict_proba(input_data)[:, 1][0]
+    prediction = 1 if proba_malignant >= threshold else 0
 
-    # Fix: confidence always reflects the predicted class
-    if prediction == 1:
-        confidence = proba        # malignant → confidence = malignancy probability
+    # Risk level
+    if proba_malignant < 0.30:
+        risk_level = "🟢 Low"
+        recommendation = "Annual Checkup"
+    elif proba_malignant < 0.60:
+        risk_level = "🟡 Moderate"
+        recommendation = "Follow-up Testing"
     else:
-        confidence = 1 - proba    # benign → confidence = benign probability
+        risk_level = "🔴 High"
+        recommendation = "Immediate Consultation"
 
     st.write("**Malignancy Risk Level:**")
-    st.progress(float(proba))
+    st.progress(float(proba_malignant))
 
     st.divider()
 
     if prediction == 1:
         st.error("⚠️ Result: Malignant")
         st.write("Please consult a medical professional immediately.")
-        # Borderline warning
-        if proba < 0.60:
+        if proba_malignant < 0.60:
             st.warning("⚠️ Borderline case — further medical testing strongly recommended.")
+        confidence = proba_malignant
     else:
         st.success("✅ Result: Benign")
         st.write("No malignancy detected. Regular checkups recommended.")
-        # Borderline warning
-        if proba >= 0.30:
+        if proba_malignant >= 0.30:
             st.warning("⚠️ Borderline case — confidence is low. Further medical testing recommended.")
+        confidence = proba_benign
 
-    col1, col2 = st.columns(2)
-    col1.metric("Malignancy Probability", f"{proba:.1%}")
-    col2.metric("Model Confidence", f"{confidence:.1%}")
+    # Metrics
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Malignancy Probability", f"{proba_malignant:.1%}")
+    col2.metric("Risk Level", risk_level)
+    col3.metric("Recommended Action", recommendation)
