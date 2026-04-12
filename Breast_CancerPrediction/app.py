@@ -12,6 +12,17 @@ threshold = joblib.load(os.path.join(BASE_DIR, 'threshold.pkl'))
 # Page config
 st.set_page_config(page_title="Breast Cancer Prediction", page_icon="🎗️", layout="wide")
 
+st.markdown("""
+    <style>
+    [data-testid="stMetricValue"] {
+        font-size: 20px !important;
+    }
+    [data-testid="stMetricLabel"] {
+        font-size: 13px !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("🎗️ Breast Cancer Prediction")
 st.write("Enter tumor measurements below to predict diagnosis.")
 st.warning("⚠️ This tool is for educational purposes only. Not a substitute for medical advice.")
