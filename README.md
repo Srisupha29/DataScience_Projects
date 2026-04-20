@@ -35,7 +35,7 @@ A machine learning web app that predicts whether a tumor is **benign or malignan
 
 * Performed **Exploratory Data Analysis (EDA)**
 * Applied **Local Outlier Factor (LOF)** for outlier detection
-* Built a **Logistic Regression model**
+* Built a **Random Forest Classifier model**
 * Evaluated performance using accuracy & metrics
 * Deployed the model using **Streamlit**
 
