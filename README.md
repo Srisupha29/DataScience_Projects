@@ -5,7 +5,7 @@ This repository showcases my projects in **machine learning, data analysis, and 
 
 ---
 
-## 🚀 About Me
+## About Me
 
 * 🎓 Computer Science student at Mahidol University International College (MUIC)
 * 🤖 Interested in AI, Machine Learning, and Data Science
@@ -42,7 +42,22 @@ A machine learning web app that predicts whether a tumor is **benign or malignan
 **Key Skills:**
 `Machine Learning` `EDA` `Model Deployment` `Data Cleaning`
 
+### 🥈 2. Customer Behaviour Analysis Dashboard
 
+**Overview:**
+An interactive Tableau dashboard that analyzes customer purchasing behavior, loyalty patterns, discount usage, and subscription adoption. The project focuses on customer segmentation and identifying trends that can help businesses improve retention and engagement strategies.
+
+**What I did:**
+
+* Performed **Exploratory Data Analysis (EDA)** on customer transaction data
+* Segmented customers into **New, Returning, and Loyal** groups based on purchase history
+* Analyzed **subscription adoption** among repeat buyers
+* Investigated the impact of **discount usage** on customer behavior
+* Created key performance indicators (KPIs) for customer loyalty and spending
+* Designed an interactive dashboard in **Tableau** for business insights and decision-making
+
+**Key Skills:**
+`Tableau` `Data Visualization` `Customer Analytics` `EDA` `Business Intelligence` `Dashboard Design`
 ---
 
 ## 📈 Goals
