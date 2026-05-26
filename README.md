@@ -58,6 +58,7 @@ An interactive Tableau dashboard that analyzes customer purchasing behavior, loy
 
 **Key Skills:**
 `Tableau` `Data Visualization` `Customer Analytics` `EDA` `Business Intelligence` `Dashboard Design`
+
 ---
 
 ## 📈 Goals
