@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Thai Logistics Prediction</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>Thai Logistics Prediction</h1>
+
+        <p class="subtitle">
+            Predict shipping duration, delay probability, and logistics risk.
+        </p>
+
+        <form id="prediction-form">
+
+            <div class="form-grid">
+
+                <div class="form-group">
+                    <label for="month">Month</label>
+                    <select id="month" required>
+                        <option value="">Select month</option>
+                        <option>January</option>
+                        <option>February</option>
+                        <option>March</option>
+                        <option>April</option>
+                        <option>May</option>
+                        <option>June</option>
+                        <option>July</option>
+                        <option>August</option>
+                        <option>September</option>
+                        <option>October</option>
+                        <option>November</option>
+                        <option>December</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="product">Product</label>
+                    <input
+                        type="text"
+                        id="product"
+                        placeholder="e.g. paddy"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="province_origin">Origin Province</label>
+                    <input
+                        type="text"
+                        id="province_origin"
+                        placeholder="e.g. Ubon Ratchathani"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="province_destination">Destination Province</label>
+                    <input
+                        type="text"
+                        id="province_destination"
+                        placeholder="e.g. Bangkok"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="average_distance">Average Distance (km)</label>
+                    <input
+                        type="number"
+                        id="average_distance"
+                        min="0.01"
+                        step="0.01"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="trips">Trips</label>
+                    <input
+                        type="number"
+                        id="trips"
+                        min="1"
+                        step="1"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="shipping">Shipping</label>
+                    <input
+                        type="number"
+                        id="shipping"
+                        min="0.01"
+                        step="0.01"
+                        required
+                    >
+                </div>
+
+            </div>
+
+            <button type="submit">
+                Predict Shipment
+            </button>
+
+        </form>
+
+        <div id="error-message" class="error hidden"></div>
+
+        <div id="results" class="results hidden">
+
+            <h2>Prediction Results</h2>
+
+            <div class="result-grid">
+
+                <div class="result-card">
+                    <span>Predicted Duration</span>
+                    <strong id="predicted-duration">-</strong>
+                </div>
+
+                <div class="result-card">
+                    <span>Delay Probability</span>
+                    <strong id="delay-probability">-</strong>
+                </div>
+
+                <div class="result-card">
+                    <span>Delay Prediction</span>
+                    <strong id="delay-prediction">-</strong>
+                </div>
+
+                <div class="result-card">
+                    <span>Risk Score</span>
+                    <strong id="risk-score">-</strong>
+                </div>
+
+                <div class="result-card">
+                    <span>Risk Category</span>
+                    <strong id="risk-category">-</strong>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>

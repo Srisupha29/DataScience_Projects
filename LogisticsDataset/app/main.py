@@ -1,14 +1,20 @@
 from fastapi import FastAPI
 from app.schemas import ShipmentInput, PredictionResponse
 from app.predictor import predict_shipment
+from fastapi.middleware.cors import CORSMiddleware
 
+app = FastAPI()
 
-app = FastAPI(
-    title="Thai Logistics Prediction API",
-    description="API for shipment duration, delay prediction, and logistics risk scoring.",
-    version="1.0.0"
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://127.0.0.1:5500",
+        "http://localhost:5500"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-
 
 @app.get("/")
 def root():
