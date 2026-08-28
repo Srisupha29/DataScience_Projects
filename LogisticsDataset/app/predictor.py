@@ -1,10 +1,16 @@
 import joblib
 import pandas as pd
+from huggingface_hub import hf_hub_download
 
 # Load trained models and preprocessing
 
+duration_model_path = hf_hub_download(
+    repo_id="SrisuphaChawla/Logistics-Model",
+    filename="duration_model.pkl"
+)
+
 duration_model = joblib.load(
-    "models/duration_model.pkl"
+    duration_model_path
 )
 
 duration_preprocessor = joblib.load(
