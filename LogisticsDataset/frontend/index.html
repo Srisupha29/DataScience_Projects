@@ -14,144 +14,223 @@
 
     <div class="container">
 
-        <h1>Thai Logistics Prediction</h1>
+        <header>
+            <h1>Thai Logistics Prediction</h1>
+            <p>Shipment duration, delay prediction and route risk assessment</p>
+        </header>
 
-        <p class="subtitle">
-            Predict shipping duration, delay probability, and logistics risk.
-        </p>
 
-        <form id="prediction-form">
+        <section class="card">
 
-            <div class="form-grid">
+            <h2>Shipment Information</h2>
 
-                <div class="form-group">
-                    <label for="month">Month</label>
-                    <select id="month" required>
-                        <option value="">Select month</option>
-                        <option>January</option>
-                        <option>February</option>
-                        <option>March</option>
-                        <option>April</option>
-                        <option>May</option>
-                        <option>June</option>
-                        <option>July</option>
-                        <option>August</option>
-                        <option>September</option>
-                        <option>October</option>
-                        <option>November</option>
-                        <option>December</option>
-                    </select>
+            <form id="predictionForm">
+
+                <div class="form-grid">
+
+                    <!-- Month -->
+                    <div class="form-group">
+                        <label for="month">Month</label>
+
+                        <select id="month" required>
+                            <option value="">Select month</option>
+                            <option value="January">January</option>
+                            <option value="February">February</option>
+                            <option value="March">March</option>
+                            <option value="April">April</option>
+                            <option value="May">May</option>
+                            <option value="June">June</option>
+                            <option value="July">July</option>
+                            <option value="August">August</option>
+                            <option value="September">September</option>
+                            <option value="October">October</option>
+                            <option value="November">November</option>
+                            <option value="December">December</option>
+                        </select>
+                    </div>
+
+
+                    <!-- Product -->
+                    <div class="form-group">
+                        <label for="product">Product</label>
+
+                        <select id="product" required>
+                            <option value="">Select product</option>
+                            <option value="paddy">Paddy</option>
+                            <option value="car">Car</option>
+                            <option value="cement">Cement</option>
+                        </select>
+                    </div>
+
+
+                    <!-- Origin -->
+                    <div class="form-group">
+                        <label for="origin">Province Origin</label>
+
+                        <select id="origin" required>
+                            <option value="">Select origin</option>
+                            <option value="Ubon Ratchathani">Ubon Ratchathani</option>
+                            <option value="Chonburi">Chonburi</option>
+                            <option value="Saraburi">Saraburi</option>
+                            <option value="Bangkok">Bangkok</option>
+                            <option value="Chiang Mai">Chiang Mai</option>
+                        </select>
+                    </div>
+
+
+                    <!-- Destination -->
+                    <div class="form-group">
+                        <label for="destination">Province Destination</label>
+
+                        <select id="destination" required>
+                            <option value="">Select destination</option>
+                            <option value="Bangkok">Bangkok</option>
+                            <option value="Chiang Mai">Chiang Mai</option>
+                            <option value="Chonburi">Chonburi</option>
+                            <option value="Saraburi">Saraburi</option>
+                            <option value="Ubon Ratchathani">Ubon Ratchathani</option>
+                        </select>
+                    </div>
+
+
+                    <!-- Trips -->
+                    <div class="form-group">
+                        <label for="trips">Trips</label>
+
+                        <input
+                            type="number"
+                            id="trips"
+                            min="1"
+                            step="1"
+                            placeholder="10"
+                            required
+                        >
+                    </div>
+
+
+                    <!-- Shipping -->
+                    <div class="form-group">
+                        <label for="shipping">Shipping</label>
+
+                        <input
+                            type="number"
+                            id="shipping"
+                            min="0.01"
+                            step="any"
+                            placeholder="300"
+                            required
+                        >
+                    </div>
+
                 </div>
 
-                <div class="form-group">
-                    <label for="product">Product</label>
-                    <input
-                        type="text"
-                        id="product"
-                        placeholder="e.g. paddy"
-                        required
-                    >
-                </div>
 
-                <div class="form-group">
-                    <label for="province_origin">Origin Province</label>
-                    <input
-                        type="text"
-                        id="province_origin"
-                        placeholder="e.g. Ubon Ratchathani"
-                        required
-                    >
-                </div>
+                <button type="submit">
+                    Predict Shipment
+                </button>
 
-                <div class="form-group">
-                    <label for="province_destination">Destination Province</label>
-                    <input
-                        type="text"
-                        id="province_destination"
-                        placeholder="e.g. Bangkok"
-                        required
-                    >
-                </div>
+            </form>
 
-                <div class="form-group">
-                    <label for="average_distance">Average Distance (km)</label>
-                    <input
-                        type="number"
-                        id="average_distance"
-                        min="0.01"
-                        step="0.01"
-                        required
-                    >
-                </div>
+        </section>
 
-                <div class="form-group">
-                    <label for="trips">Trips</label>
-                    <input
-                        type="number"
-                        id="trips"
-                        min="1"
-                        step="1"
-                        required
-                    >
-                </div>
 
-                <div class="form-group">
-                    <label for="shipping">Shipping</label>
-                    <input
-                        type="number"
-                        id="shipping"
-                        min="0.01"
-                        step="0.01"
-                        required
-                    >
-                </div>
-
-            </div>
-
-            <button type="submit">
-                Predict Shipment
-            </button>
-
-        </form>
-
-        <div id="error-message" class="error hidden"></div>
-
-        <div id="results" class="results hidden">
+        <section id="results" class="card results hidden">
 
             <h2>Prediction Results</h2>
 
-            <div class="result-grid">
+            <div class="results-grid">
 
-                <div class="result-card">
+                <div class="result-box">
                     <span>Predicted Duration</span>
-                    <strong id="predicted-duration">-</strong>
+                    <strong id="predictedDuration">-</strong>
                 </div>
 
-                <div class="result-card">
+                <div class="result-box">
                     <span>Delay Probability</span>
-                    <strong id="delay-probability">-</strong>
+                    <strong id="delayProbability">-</strong>
                 </div>
 
-                <div class="result-card">
+                <div class="result-box">
                     <span>Delay Prediction</span>
-                    <strong id="delay-prediction">-</strong>
+                    <strong id="delayPrediction">-</strong>
                 </div>
 
-                <div class="result-card">
+                <div class="result-box">
                     <span>Risk Score</span>
-                    <strong id="risk-score">-</strong>
+                    <strong id="riskScore">-</strong>
                 </div>
 
-                <div class="result-card">
+                <div class="result-box">
                     <span>Risk Category</span>
-                    <strong id="risk-category">-</strong>
+                    <strong id="riskCategory">-</strong>
                 </div>
 
             </div>
 
-        </div>
+        </section>
+
+
+        <!-- =========================
+             ROUTE COMPARISON
+        ========================== -->
+
+        <section id="routeComparison" class="card hidden">
+
+            <h2>Route Comparison</h2>
+
+            <p class="section-description">
+                Compare available routes based on distance, traffic,
+                weather, predicted duration and delay risk.
+            </p>
+
+            <div class="table-container">
+
+                <table>
+
+                    <thead>
+                        <tr>
+                            <th>Route</th>
+                            <th>Distance</th>
+                            <th>Traffic</th>
+                            <th>Weather</th>
+                            <th>Predicted Duration</th>
+                            <th>Delay Risk</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="routeTableBody">
+
+                        <!-- Routes will be populated dynamically -->
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </section>
+
+        <section id="recommendation" class="card hidden">
+
+            <h2>Recommended Route</h2>
+
+            <div class="recommendation-box">
+
+                <h3 id="recommendedRoute">-</h3>
+
+                <p id="recommendationReason">
+                    Route recommendation will appear here.
+                </p>
+
+            </div>
+
+        </section>
+
+
+        <section id="errorMessage" class="error hidden"></section>
 
     </div>
+
 
     <script src="script.js"></script>
 

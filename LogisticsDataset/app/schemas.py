@@ -7,7 +7,6 @@ class ShipmentInput(BaseModel):
     province_origin: str
     province_destination: str
 
-    average_distance: float = Field(gt=0)
     trips: int = Field(gt=0)
     shipping: float = Field(gt=0)
 
