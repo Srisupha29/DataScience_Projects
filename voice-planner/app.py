@@ -2,6 +2,7 @@ import streamlit as st
 
 from services.transcription import transcribe_audio
 from services.extraction import extract_checkin
+from services.planner import generate_plan
 
 st.set_page_config(
     page_title="Voice Daily Planner",
@@ -69,3 +70,13 @@ if audio is not None:
 
         for commitment in checkin.commitments:
             st.write(f" - {commitment}")
+
+        
+    st.subheader("Today's Plan")
+
+    plan = generate_plan(checkin)
+
+    for item in plan:
+        st.write(
+            f"**{item['time']}** — {item['activity']}"
+        )

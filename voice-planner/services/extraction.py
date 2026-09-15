@@ -136,56 +136,104 @@ def extract_tasks(text: str):
 
 
 def extract_commitments(text: str):
-    """Extract commitments with their labels and times."""
+    """Extract activities that have an associated time or time range."""
 
     text = text.lower()
 
-    commitments = []
+    number_words = {
+        "one": "1",
+        "two": "2",
+        "three": "3",
+        "four": "4",
+        "five": "5",
+        "six": "6",
+        "seven": "7",
+        "eight": "8",
+        "nine": "9",
+        "ten": "10",
+        "eleven": "11",
+        "twelve": "12"
+    }
 
-    # Internship / work: "internship from 9 am to 5 pm"
-    internship_pattern = (
-        r"(internship|work)\s+"
-        r"(?:from\s+)?"
-        r"(\d+(?::\d+)?\s*(?:am|pm)?)\s*"
-        r"(?:to|-)\s*"
-        r"(\d+(?::\d+)?\s*(?:am|pm)?)"
-    )
-
-    matches = re.findall(internship_pattern, text)
-
-    for _, start, end in matches:
-        commitments.append(
-            f"Internship: {start}-{end}"
-        )
-
-    # Handle transcripts where Whisper removes "am/pm":
-    # "internship from 9 to 5"
-    if not matches:
-        internship_simple = re.search(
-            r"internship\s+(?:from\s+)?"
-            r"(\d+(?::\d+)?)\s*(?:to|-)\s*"
-            r"(\d+(?::\d+)?)",
+    # Convert written numbers to digits
+    for word, number in number_words.items():
+        text = re.sub(
+            rf"\b{word}\b",
+            number,
             text
         )
 
-        if internship_simple:
-            start, end = internship_simple.groups()
+    # Normalize AM/PM variations
+    text = re.sub(r"\ba\.m\.\b", "am", text)
+    text = re.sub(r"\bp\.m\.\b", "pm", text)
 
-            commitments.append(
-                f"Internship: {start}-{end}"
-            )
+    commitments = []
 
-    # Tutoring: "tutoring at 7 pm"
-    tutoring_match = re.search(
-        r"tutoring\s+(?:at\s+)?"
-        r"(\d+(?::\d+)?\s*(?:am|pm)?)",
-        text
+    # --------------------------------------------------
+    # Time ranges
+    # Example:
+    # "I have internship from 9 to 5 today"
+    # "I have class from 10:30 to 12"
+    # --------------------------------------------------
+
+    range_pattern = re.compile(
+        r"(?:i\s+have|i\s+need\s+to|i\s+have\s+to|"
+        r"i'm\s+going\s+to|i\s+am\s+going\s+to)?\s*"
+        r"(.+?)\s+"
+        r"(?:from\s+)?"
+        r"(\d+(?::\d+)?)\s*"
+        r"(?:am|pm)?\s*"
+        r"(?:to|-)\s*"
+        r"(\d+(?::\d+)?)\s*"
+        r"(?:am|pm)?"
     )
 
-    if tutoring_match:
+    for match in range_pattern.finditer(text):
+
+        activity = match.group(1).strip()
+        start = match.group(2)
+        end = match.group(3)
+
+        # Remove common trailing words
+        activity = re.sub(
+            r"\s+(today|tomorrow|tonight)$",
+            "",
+            activity
+        ).strip()
+
+        if activity:
+            commitments.append(
+                f"{activity}: {start}-{end}"
+            )
+
+    # --------------------------------------------------
+    # Single times
+    # Example:
+    # "I have tutoring at 7"
+    # "I have a meeting at 2 pm"
+    # "I need to go to the dentist at 3"
+    # --------------------------------------------------
+
+    single_pattern = re.compile(
+        r"(?:i\s+have|i\s+need\s+to|i\s+have\s+to|"
+        r"i'm\s+going\s+to|i\s+am\s+going\s+to)\s+"
+        r"(.+?)\s+"
+        r"(?:at|around)\s+"
+        r"(\d+(?::\d+)?)\s*"
+        r"(am|pm)?"
+    )
+
+    for match in single_pattern.finditer(text):
+
+        activity = match.group(1).strip()
+        time = match.group(2)
+        period = match.group(3)
+
+        if period:
+            time = f"{time} {period}"
+
         commitments.append(
-            f"Tutoring: {tutoring_match.group(1)}"
+            f"{activity}: {time}"
         )
 
-    # Remove duplicates
     return list(dict.fromkeys(commitments))
