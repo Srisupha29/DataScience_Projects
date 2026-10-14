@@ -207,6 +207,92 @@ Do not assume that every experiment tests multiple headline texts. Before headli
 - What cleaning and inclusion rules are appropriate for the eventual research questions?
 - What assumptions are required for valid within-experiment comparisons?
 
+## Step 6 — Classify Headline and Image ID Variation
+
+### Objective
+
+Classify experiments according to the number of distinct headlines and image IDs. Check whether missing image IDs are concentrated in particular experiments.
+
+### Method
+
+Ran `src/classify_experiments.py` to group packages by `clickability_test_id` and classify experiments based on their distinct headline and image ID counts. The script also checked image ID completeness.
+
+### Observed Results
+
+#### Headline and Image ID Variation
+
+| Headline Pattern | Image ID Pattern | Experiment Count |
+|---|---|---:|
+| Multiple headlines | All image IDs missing | 3 |
+| Multiple headlines | Multiple distinct image IDs | 300 |
+| Multiple headlines | One distinct image ID | 2,304 |
+| One headline | All image IDs missing | 2 |
+| One headline | Multiple distinct image IDs | 1,426 |
+| One headline | One distinct image ID | 838 |
+| **Total** | | **4,873** |
+
+#### Image ID Completeness
+
+| Metric | Result |
+|---|---:|
+| Total experiments | 4,873 |
+| Experiments with no missing image IDs | 4,868 |
+| Experiments with some missing image IDs | 0 |
+| Experiments with all image IDs missing | 5 |
+| Total rows missing an image ID | 22 |
+
+### Interpretation
+
+1. **Headline variation:** 2,607 experiments have multiple distinct headlines, representing approximately 53.5% of all experiments.
+2. **Image ID variation:** 1,726 experiments have multiple distinct image IDs, representing approximately 35.4% of all experiments.
+3. **One headline, multiple image IDs:** 1,426 experiments fall into this category. These may be useful for investigating image variation separately from headline variation.
+4. **One headline, one image ID:** 838 experiments fall into this category. This does not mean that each experiment contains only one package; multiple package rows can share the same headline and image ID.
+5. **Missing image IDs:** All 22 rows with missing image IDs occur in
+
+## Step 7 — Open Questions and Analytical Decisions
+
+### Objective
+
+Identify unresolved questions about the dataset's structure and measurement before beginning performance analysis.
+
+### Open Questions
+
+| Question | Why It Matters | Current Status |
+|---|---|---|
+| What does one row represent? | Determines the correct unit of analysis. | Documentation describes each row as a package, representing a headline-and-image combination. |
+| Can multiple rows share the same headline? | Repeated text must not automatically be treated as duplicate data. | Yes. Investigations found experiments with repeated headline text and different slugs and image IDs. |
+| Do different image IDs always represent different visual content? | Image IDs alone cannot establish visual differences. | Unresolved; distinct IDs do not guarantee visually distinct images. |
+| What do `winner`, `first_place`, and `significance` represent? | These fields could be misleading if interpreted as independent statistical evidence. | Treat as editorial metadata unless documentation supports a more specific interpretation. |
+| Are all experiments suitable for headline-performance comparisons? | Some experiments have only one distinct headline, so not all support a direct headline-variant comparison. | No. Eligibility must be determined from the experiment structure. |
+| How should differences in impressions be handled? | Raw click counts are not directly comparable when exposure differs. | Use click-through rate (CTR) for descriptive comparisons and account for statistical uncertainty in subsequent analysis. |
+| What experimental-design details are needed for valid inference? | Assignment procedures and dependence between observations affect statistical conclusions. | Requires further investigation before selecting the inferential method. |
+
+### Analytical Decisions
+
+1. Preserve the original raw CSV and perform transformations on derived data.
+2. Use `clickability_test_id` to group packages into experiments.
+3. Do not remove repeated headline text solely because it appears more than once.
+4. Do not interpret `winner`, `first_place`, or `significance` as independent proof of statistical significance or causal superiority.
+5. Distinguish experiments with multiple headlines from experiments with multiple image IDs.
+6. Treat overall CTR as descriptive, not as evidence that a particular headline caused better performance.
+7. Record assumptions and limitations before using the dataset for statistical comparisons.
+
+### Phase 1 Completion Criteria
+
+Phase 1 is ready for review when:
+
+- [ ] The dataset schema and row-level unit are documented.
+- [ ] Missing values and basic data-quality checks are documented.
+- [ ] Experiment structure and headline/image variation are documented.
+- [ ] Analytical limitations and open questions are recorded.
+- [ ] The raw data remains unchanged.
+
+### Phase 1 Status
+
+**Status: Pending final review.**
+
+The initial investigations are complete. Before proceeding, review the investigation log and verify that the findings and limitations are recorded accurately. Any unresolved question affecting the validity of the analysis should remain explicitly documented rather than being silently assumed away.
+
 ## Phase 1 completion criteria
 
 Phase 1 is complete when:
