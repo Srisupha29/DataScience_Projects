@@ -1,10 +1,9 @@
-from pathlib import Path
+from utils import (
+    PACKAGES_FILE,
+    get_connection,
+    load_parquet_view,
+)
 
-import duckdb
-
-
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-PACKAGES_FILE = PROJECT_DIR / "data" / "processed" / "packages.parquet"
 
 FLAGGED_EXPERIMENTS = [
     "5348bd88fe9c5a1bf500001b",
@@ -17,12 +16,18 @@ FLAGGED_EXPERIMENTS = [
 
 def main():
     if not PACKAGES_FILE.exists():
-        raise FileNotFoundError(f"Dataset not found: {PACKAGES_FILE}")
+        raise FileNotFoundError(
+            f"Dataset not found: {PACKAGES_FILE}"
+        )
 
-    con = duckdb.connect(database=":memory:")
+    con = get_connection()
 
     try:
-        con.read_parquet(str(PACKAGES_FILE)).create_view("packages")
+        load_parquet_view(
+            con,
+            "packages",
+            PACKAGES_FILE,
+        )
 
         results = con.execute("""
             SELECT
@@ -56,7 +61,8 @@ def main():
                 clickability_test_id AS experiment_id,
                 COUNT(*) AS source_rows,
                 COUNT(DISTINCT package_id) AS distinct_package_ids,
-                COUNT(DISTINCT lower(trim(headline))) AS distinct_headlines,
+                COUNT(DISTINCT lower(trim(headline)))
+                    AS distinct_headlines,
                 COUNT(DISTINCT eyecatcher_id) AS distinct_image_ids,
                 COUNT(*) FILTER (
                     WHERE eyecatcher_id IS NULL
@@ -79,4 +85,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    

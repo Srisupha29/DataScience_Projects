@@ -1,171 +1,157 @@
-
-from pathlib import Path
-
-import duckdb
-
-# Locate the project and exploratory dataset.
-PROJECT_DIR = Path(__file__).resolve().parents[1]
-RAW_DIR = PROJECT_DIR / "data" / "raw"
-
-csv_files = list(RAW_DIR.glob("*exploratory*.csv"))
-
-if len(csv_files) != 1:
-    raise RuntimeError(
-        f"Expected exactly one exploratory CSV, found {len(csv_files)}"
-    )
-
-csv_path = str(csv_files[0]).replace("'", "''")
-
-con = duckdb.connect()
-
-con.execute(
-    f"""
-    CREATE VIEW upworthy AS
-    SELECT *
-    FROM read_csv_auto('{csv_path}')
-    """
+from utils import (
+    load_raw_view,
+    get_connection,
 )
 
-# 1. Check whether the source's row identifier is unique.
-print("\n=== 1. ROW IDENTIFIER CHECK ===")
 
-print(
-    con.execute(
-        """
-        SELECT
-            COUNT(*) AS total_rows,
-            COUNT(DISTINCT column00) AS distinct_row_ids,
-            COUNT(*) - COUNT(DISTINCT column00) AS repeated_row_id_count
-        FROM upworthy
-        """
-    ).df().to_string(index=False)
-)
+def main():
+    con = get_connection()
 
-# 2. Find repeated experiment/headline combinations.
-print("\n=== 2. REPEATED EXPERIMENT + HEADLINE COMBINATIONS ===")
+    try:
+        # Load the raw CSV using the shared project configuration.
+        load_raw_view(con, "upworthy")
 
-print(
-    con.execute(
-        """
-        SELECT
-            clickability_test_id,
-            headline,
-            COUNT(*) AS row_count
-        FROM upworthy
-        GROUP BY clickability_test_id, headline
-        HAVING COUNT(*) > 1
-        ORDER BY row_count DESC
-        LIMIT 20
-        """
-    ).df().to_string(index=False)
-)
+        # 1. Check whether the source row identifier is unique.
+        print("\n=== 1. ROW IDENTIFIER CHECK ===")
 
-# 3. Check how many distinct headline texts each experiment has.
-print("\n=== 3. EXPERIMENTS WITH FEWER DISTINCT HEADLINES THAN ROWS ===")
-
-print(
-    con.execute(
-        """
-        WITH experiment_structure AS (
-            SELECT
-                clickability_test_id,
-                COUNT(*) AS row_count,
-                COUNT(DISTINCT headline) AS distinct_headlines,
-                COUNT(DISTINCT slug) AS distinct_slugs
-            FROM upworthy
-            GROUP BY clickability_test_id
+        print(
+            con.execute("""
+                SELECT
+                    COUNT(*) AS total_rows,
+                    COUNT(DISTINCT column00) AS distinct_row_ids,
+                    COUNT(*) - COUNT(DISTINCT column00)
+                        AS repeated_row_id_count
+                FROM upworthy
+            """).df().to_string(index=False)
         )
-        SELECT *
-        FROM experiment_structure
-        WHERE distinct_headlines < row_count
-        ORDER BY row_count DESC
-        LIMIT 20
-        """
-    ).df().to_string(index=False)
-)
 
-# 4. Validate clicks and impressions.
-print("\n=== 4. PERFORMANCE COUNT VALIDATION ===")
+        # 2. Find repeated experiment/headline combinations.
+        print(
+            "\n=== 2. REPEATED EXPERIMENT + HEADLINE COMBINATIONS ==="
+        )
 
-print(
-    con.execute(
-        """
-        SELECT
-            COUNT(*) FILTER (
-                WHERE impressions = 0
-            ) AS zero_impression_rows,
+        print(
+            con.execute("""
+                SELECT
+                    clickability_test_id,
+                    headline,
+                    COUNT(*) AS row_count
+                FROM upworthy
+                GROUP BY clickability_test_id, headline
+                HAVING COUNT(*) > 1
+                ORDER BY row_count DESC
+                LIMIT 20
+            """).df().to_string(index=False)
+        )
 
-            COUNT(*) FILTER (
-                WHERE impressions IS NULL
-            ) AS null_impression_rows,
+        # 3. Check headline and slug variation within experiments.
+        print(
+            "\n=== 3. EXPERIMENTS WITH FEWER DISTINCT HEADLINES THAN ROWS ==="
+        )
 
-            COUNT(*) FILTER (
-                WHERE clicks IS NULL
-            ) AS null_click_rows,
+        print(
+            con.execute("""
+                WITH experiment_structure AS (
+                    SELECT
+                        clickability_test_id,
+                        COUNT(*) AS row_count,
+                        COUNT(DISTINCT headline) AS distinct_headlines,
+                        COUNT(DISTINCT slug) AS distinct_slugs
+                    FROM upworthy
+                    GROUP BY clickability_test_id
+                )
+                SELECT *
+                FROM experiment_structure
+                WHERE distinct_headlines < row_count
+                ORDER BY row_count DESC
+                LIMIT 20
+            """).df().to_string(index=False)
+        )
 
-            COUNT(*) FILTER (
-                WHERE clicks > impressions
-            ) AS clicks_exceed_impressions,
+        # 4. Validate clicks and impressions.
+        print("\n=== 4. PERFORMANCE COUNT VALIDATION ===")
 
-            COUNT(*) FILTER (
-                WHERE impressions < 0
-            ) AS negative_impression_rows,
+        print(
+            con.execute("""
+                SELECT
+                    COUNT(*) FILTER (
+                        WHERE impressions = 0
+                    ) AS zero_impression_rows,
 
-            COUNT(*) FILTER (
-                WHERE clicks < 0
-            ) AS negative_click_rows
-        FROM upworthy
-        """
-    ).df().to_string(index=False)
-)
+                    COUNT(*) FILTER (
+                        WHERE impressions IS NULL
+                    ) AS null_impression_rows,
 
-# 5. Profile outcome-related fields; do not use them as predictors.
-print("\n=== 5. WINNER / FIRST-PLACE / SIGNIFICANCE PROFILE ===")
+                    COUNT(*) FILTER (
+                        WHERE clicks IS NULL
+                    ) AS null_click_rows,
 
-print(
-    con.execute(
-        """
-        SELECT
-            COUNT(*) AS total_rows,
+                    COUNT(*) FILTER (
+                        WHERE clicks > impressions
+                    ) AS clicks_exceed_impressions,
 
-            COUNT(*) FILTER (
-                WHERE winner IS TRUE
-            ) AS winner_true_rows,
+                    COUNT(*) FILTER (
+                        WHERE impressions < 0
+                    ) AS negative_impression_rows,
 
-            COUNT(*) FILTER (
-                WHERE winner IS FALSE
-            ) AS winner_false_rows,
+                    COUNT(*) FILTER (
+                        WHERE clicks < 0
+                    ) AS negative_click_rows
+                FROM upworthy
+            """).df().to_string(index=False)
+        )
 
-            COUNT(*) FILTER (
-                WHERE winner IS NULL
-            ) AS winner_null_rows,
+        # 5. Profile editorial outcome fields.
+        # These fields should not be used as predictive features.
+        print(
+            "\n=== 5. WINNER / FIRST-PLACE / SIGNIFICANCE PROFILE ==="
+        )
 
-            COUNT(*) FILTER (
-                WHERE first_place IS TRUE
-            ) AS first_place_true_rows,
+        print(
+            con.execute("""
+                SELECT
+                    COUNT(*) AS total_rows,
 
-            COUNT(*) FILTER (
-                WHERE first_place IS FALSE
-            ) AS first_place_false_rows,
+                    COUNT(*) FILTER (
+                        WHERE winner IS TRUE
+                    ) AS winner_true_rows,
 
-            COUNT(*) FILTER (
-                WHERE first_place IS NULL
-            ) AS first_place_null_rows,
+                    COUNT(*) FILTER (
+                        WHERE winner IS FALSE
+                    ) AS winner_false_rows,
 
-            COUNT(*) FILTER (
-                WHERE significance IS NULL
-            ) AS significance_null_rows,
+                    COUNT(*) FILTER (
+                        WHERE winner IS NULL
+                    ) AS winner_null_rows,
 
-            MIN(significance) AS min_significance,
+                    COUNT(*) FILTER (
+                        WHERE first_place IS TRUE
+                    ) AS first_place_true_rows,
 
-            MEDIAN(significance) AS median_significance,
+                    COUNT(*) FILTER (
+                        WHERE first_place IS FALSE
+                    ) AS first_place_false_rows,
 
-            MAX(significance) AS max_significance
-        FROM upworthy
-        """
-    ).df().to_string(index=False)
-)
+                    COUNT(*) FILTER (
+                        WHERE first_place IS NULL
+                    ) AS first_place_null_rows,
 
-print("\nQuality checks complete. No source data was modified.")
+                    COUNT(*) FILTER (
+                        WHERE significance IS NULL
+                    ) AS significance_null_rows,
 
-con.close()
+                    MIN(significance) AS min_significance,
+                    MEDIAN(significance) AS median_significance,
+                    MAX(significance) AS max_significance
+                FROM upworthy
+            """).df().to_string(index=False)
+        )
+
+        print("\nQuality checks complete. No source data was modified.")
+
+    finally:
+        con.close()
+
+
+if __name__ == "__main__":
+    main()

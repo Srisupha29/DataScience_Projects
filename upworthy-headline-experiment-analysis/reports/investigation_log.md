@@ -289,7 +289,7 @@ Phase 1 is ready for review when:
 
 ### Phase 1 Status
 
-**Status: Pending final review.**
+**Status: Completed.**
 
 The initial investigations are complete. Before proceeding, review the investigation log and verify that the findings and limitations are recorded accurately. Any unresolved question affecting the validity of the analysis should remain explicitly documented rather than being silently assumed away.
 
@@ -306,3 +306,29 @@ Phase 1 is complete when:
 - The remaining structural questions have been investigated sufficiently to justify the next phase.
 
 **Next planned step:** Continue the structural investigation with `src/classify_experiments.py`. Do not begin confirmatory analysis before defining and preregistering the hypotheses and analysis plan.
+
+## Identifier and Repeated-Record Investigation
+
+### Identifier definitions
+- `row_id`: Original source identifier from `column00`; unique per source row.
+- `package_id`: Deterministic SHA-256 identifier based on experiment ID,
+  normalized headline text, and recorded image ID.
+- `clickability_test_id`: Identifier grouping packages within an experiment.
+
+### Findings
+- Source rows: 22,666.
+- Distinct stimulus identities: 19,171.
+- Repeated stimulus identities: 1,148.
+- Every repeated identity has multiple distinct timestamps.
+- No repeated identity has a missing timestamp.
+- Repeated identities have differing impression counts, click counts, or both.
+
+### Decisions and limitations
+- Preserve every source row; do not deduplicate based on headline and image ID.
+- Keep `row_id` as the source-record identifier and `package_id` as the
+  stimulus-identity identifier.
+- Retain `created_at` for temporal investigation.
+- Do not aggregate repeated impression and click counts until the source
+  recording process and row semantics are established.
+- A recorded image ID does not prove visual identity, and a repeated
+  stimulus identity does not prove independent experimental assignment.

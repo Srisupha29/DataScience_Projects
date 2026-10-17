@@ -1,15 +1,24 @@
-from pathlib import Path
-import duckdb
-
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-PACKAGES_FILE = PROJECT_DIR / "data" / "processed" / "packages.parquet"
+from utils import (
+    PACKAGES_FILE,
+    get_connection,
+    load_parquet_view,
+)
 
 
 def main():
-    con = duckdb.connect(database=":memory:")
+    if not PACKAGES_FILE.exists():
+        raise FileNotFoundError(
+            f"Dataset not found: {PACKAGES_FILE}"
+        )
+
+    con = get_connection()
 
     try:
-        con.read_parquet(str(PACKAGES_FILE)).create_view("packages")
+        load_parquet_view(
+            con,
+            "packages",
+            PACKAGES_FILE,
+        )
 
         results = con.execute("""
             SELECT

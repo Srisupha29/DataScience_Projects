@@ -1,26 +1,30 @@
-
-from pathlib import Path
-import duckdb
-
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-INPUT_FILE = (
-    PROJECT_DIR / "data" / "processed" / "experiment_summary.parquet"
-)
-OUTPUT_FILE = (
-    PROJECT_DIR / "data" / "processed" / "comparison_candidates.parquet"
+from utils import (
+    EXPERIMENT_SUMMARY_FILE,
+    COMPARISON_CANDIDATES_FILE,
+    get_connection,
+    load_parquet_view,
 )
 
 
 def main():
-    if not INPUT_FILE.exists():
-        raise FileNotFoundError(f"Input file not found: {INPUT_FILE}")
+    if not EXPERIMENT_SUMMARY_FILE.exists():
+        raise FileNotFoundError(
+            f"Input file not found: {EXPERIMENT_SUMMARY_FILE}"
+        )
 
-    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    con = duckdb.connect(database=":memory:")
+    COMPARISON_CANDIDATES_FILE.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    con = get_connection()
 
     try:
-        summary = con.read_parquet(str(INPUT_FILE))
-        summary.create_view("experiment_summary")
+        load_parquet_view(
+            con,
+            "experiment_summary",
+            EXPERIMENT_SUMMARY_FILE,
+        )
 
         candidates = con.sql("""
             SELECT
@@ -43,38 +47,49 @@ def main():
         """)
 
         candidates.write_parquet(
-            str(OUTPUT_FILE),
+            str(COMPARISON_CANDIDATES_FILE),
             compression="zstd",
         )
 
         print("\nCOMPARISON CANDIDATE CLASSIFICATION")
         print("=" * 70)
 
-        print(con.execute("""
-            SELECT
-                comparison_category,
-                COUNT(*) AS experiment_count,
-                ROUND(
-                    100.0 * COUNT(*) / SUM(COUNT(*)) OVER (),
-                    2
-                ) AS percentage
-            FROM read_parquet(?)
-            GROUP BY comparison_category
-            ORDER BY experiment_count DESC
-        """, [str(OUTPUT_FILE)]).df().to_string(index=False))
+        print(
+            con.execute("""
+                SELECT
+                    comparison_category,
+                    COUNT(*) AS experiment_count,
+                    ROUND(
+                        100.0 * COUNT(*) / SUM(COUNT(*)) OVER (),
+                        2
+                    ) AS percentage
+                FROM read_parquet(?)
+                GROUP BY comparison_category
+                ORDER BY experiment_count DESC
+            """, [str(COMPARISON_CANDIDATES_FILE)])
+            .df()
+            .to_string(index=False)
+        )
 
         print("\nVALIDATION")
         print("=" * 70)
 
-        print(con.execute("""
-            SELECT
-                COUNT(*) AS total_experiments,
-                COUNT(DISTINCT clickability_test_id) AS unique_experiment_ids,
-                SUM(package_count) AS total_packages
-            FROM read_parquet(?)
-        """, [str(OUTPUT_FILE)]).df().to_string(index=False))
+        print(
+            con.execute("""
+                SELECT
+                    COUNT(*) AS total_experiments,
+                    COUNT(DISTINCT clickability_test_id)
+                        AS unique_experiment_ids,
+                    SUM(package_count) AS total_packages
+                FROM read_parquet(?)
+            """, [str(COMPARISON_CANDIDATES_FILE)])
+            .df()
+            .to_string(index=False)
+        )
 
-        print(f"\nOutput saved to: {OUTPUT_FILE}")
+        print(
+            f"\nOutput saved to: {COMPARISON_CANDIDATES_FILE}"
+        )
         print("\nSUCCESS: Comparison candidates classified.")
 
     finally:

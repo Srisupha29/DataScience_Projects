@@ -1,18 +1,24 @@
-from pathlib import Path
-import duckdb
-
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-PACKAGES_FILE = PROJECT_DIR / "data" / "processed" / "packages.parquet"
+from utils import (
+    PACKAGES_FILE,
+    get_connection,
+    load_parquet_view,
+)
 
 
 def main():
     if not PACKAGES_FILE.exists():
-        raise FileNotFoundError(f"Dataset not found: {PACKAGES_FILE}")
+        raise FileNotFoundError(
+            f"Dataset not found: {PACKAGES_FILE}"
+        )
 
-    con = duckdb.connect(database=":memory:")
+    con = get_connection()
 
     try:
-        con.read_parquet(str(PACKAGES_FILE)).create_view("packages")
+        load_parquet_view(
+            con,
+            "packages",
+            PACKAGES_FILE,
+        )
 
         # Count how often each stimulus identity appears.
         repetition_summary = con.execute("""
@@ -39,7 +45,8 @@ def main():
                 headline,
                 eyecatcher_id,
                 COUNT(*) AS source_rows,
-                COUNT(DISTINCT impressions) AS distinct_impression_counts,
+                COUNT(DISTINCT impressions)
+                    AS distinct_impression_counts,
                 COUNT(DISTINCT clicks) AS distinct_click_counts,
                 MIN(impressions) AS min_impressions,
                 MAX(impressions) AS max_impressions,
@@ -64,14 +71,15 @@ def main():
         else:
             print(repeated.to_string(index=False))
 
-        # Check whether row-level performance counts are identical
+        # Check whether performance counts are identical
         # within each repeated identity.
         consistency = con.execute("""
             WITH grouped AS (
                 SELECT
                     package_id,
                     COUNT(*) AS source_rows,
-                    COUNT(DISTINCT impressions) AS impression_values,
+                    COUNT(DISTINCT impressions)
+                        AS impression_values,
                     COUNT(DISTINCT clicks) AS click_values
                 FROM packages
                 GROUP BY package_id

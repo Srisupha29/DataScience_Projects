@@ -1,31 +1,41 @@
 
-from pathlib import Path
-
-import duckdb
-
-
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = PROJECT_DIR / "data" / "processed"
-
-PACKAGES_FILE = DATA_DIR / "packages.parquet"
-SUMMARY_FILE = DATA_DIR / "experiment_summary.parquet"
-CANDIDATES_FILE = DATA_DIR / "comparison_candidates.parquet"
+from utils import (
+    PACKAGES_FILE,
+    EXPERIMENT_SUMMARY_FILE,
+    COMPARISON_CANDIDATES_FILE,
+    get_connection,
+    load_parquet_view,
+)
 
 
 def main():
-    files = [PACKAGES_FILE, SUMMARY_FILE, CANDIDATES_FILE]
+    required_files = [
+        PACKAGES_FILE,
+        EXPERIMENT_SUMMARY_FILE,
+        COMPARISON_CANDIDATES_FILE,
+    ]
 
-    for file in files:
-        if not file.exists():
-            raise FileNotFoundError(f"Required dataset not found: {file}")
+    for file_path in required_files:
+        if not file_path.exists():
+            raise FileNotFoundError(
+                f"Required dataset not found: {file_path}"
+            )
 
-    con = duckdb.connect(database=":memory:")
+    con = get_connection()
 
     try:
         # Register all three datasets.
-        con.read_parquet(str(PACKAGES_FILE)).create_view("packages")
-        con.read_parquet(str(SUMMARY_FILE)).create_view("experiment_summary")
-        con.read_parquet(str(CANDIDATES_FILE)).create_view("comparison_candidates")
+        load_parquet_view(con, "packages", PACKAGES_FILE)
+        load_parquet_view(
+            con,
+            "experiment_summary",
+            EXPERIMENT_SUMMARY_FILE,
+        )
+        load_parquet_view(
+            con,
+            "comparison_candidates",
+            COMPARISON_CANDIDATES_FILE,
+        )
 
         checks = []
 
@@ -40,11 +50,14 @@ def main():
         package_result = con.execute("""
             SELECT
                 COUNT(*) AS row_count,
-                COUNT(DISTINCT clickability_test_id) AS experiment_count,
-                COUNT(*) FILTER (WHERE ctr IS NULL) AS null_ctr_count,
+                COUNT(DISTINCT clickability_test_id)
+                    AS experiment_count,
+                COUNT(*) FILTER (WHERE ctr IS NULL)
+                    AS null_ctr_count,
                 COUNT(*) FILTER (
                     WHERE ABS(
-                        ctr - clicks::DOUBLE / NULLIF(impressions, 0)
+                        ctr - clicks::DOUBLE
+                        / NULLIF(impressions, 0)
                     ) > 1e-12
                 ) AS incorrect_ctr_count
             FROM packages
@@ -56,8 +69,10 @@ def main():
             and package_result[1] == 4873
             and package_result[2] == 0
             and package_result[3] == 0,
-            f"rows={package_result[0]}, experiments={package_result[1]}, "
-            f"null CTR={package_result[2]}, incorrect CTR={package_result[3]}",
+            f"rows={package_result[0]}, "
+            f"experiments={package_result[1]}, "
+            f"null CTR={package_result[2]}, "
+            f"incorrect CTR={package_result[3]}",
         )
 
         # Check 2: experiment summary uniqueness and package totals.
@@ -66,7 +81,9 @@ def main():
                 COUNT(*) AS row_count,
                 COUNT(DISTINCT clickability_test_id) AS unique_ids,
                 SUM(package_count) AS package_total,
-                COUNT(*) FILTER (WHERE pooled_ctr IS NULL) AS null_pooled_ctr
+                COUNT(*) FILTER (
+                    WHERE pooled_ctr IS NULL
+                ) AS null_pooled_ctr
             FROM experiment_summary
         """).fetchone()
 
@@ -76,7 +93,8 @@ def main():
             and summary_result[1] == 4873
             and summary_result[2] == 22666
             and summary_result[3] == 0,
-            f"rows={summary_result[0]}, unique IDs={summary_result[1]}, "
+            f"rows={summary_result[0]}, "
+            f"unique IDs={summary_result[1]}, "
             f"package total={summary_result[2]}, "
             f"null pooled CTR={summary_result[3]}",
         )
@@ -104,7 +122,8 @@ def main():
         record_check(
             "Experiment metrics reconcile",
             metric_mismatches == 0,
-            f"experiments with mismatched aggregate metrics={metric_mismatches}",
+            "experiments with mismatched aggregate metrics="
+            f"{metric_mismatches}",
         )
 
         # Check 4: comparison-candidate keys and row totals.
@@ -123,7 +142,8 @@ def main():
             candidate_result[0] == 4873
             and candidate_result[1] == 4873
             and candidate_result[2] == 0,
-            f"rows={candidate_result[0]}, unique IDs={candidate_result[1]}, "
+            f"rows={candidate_result[0]}, "
+            f"unique IDs={candidate_result[1]}, "
             f"missing categories={candidate_result[2]}",
         )
 
@@ -156,7 +176,10 @@ def main():
             print(f"[{check['status']}] {check['check']}")
             print(f"    {check['details']}")
 
-        failures = [check for check in checks if check["status"] == "FAIL"]
+        failures = [
+            check for check in checks
+            if check["status"] == "FAIL"
+        ]
 
         print("\nSUMMARY")
         print("=" * 80)

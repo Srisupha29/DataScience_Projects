@@ -1,21 +1,30 @@
-from pathlib import Path
-import duckdb
-
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-INPUT_FILE = PROJECT_DIR / "data" / "processed" / "packages.parquet"
-OUTPUT_FILE = PROJECT_DIR / "data" / "processed" / "experiment_summary.parquet"
+from utils import (
+    PACKAGES_FILE,
+    EXPERIMENT_SUMMARY_FILE,
+    get_connection,
+    load_parquet_view,
+)
 
 
 def main():
-    if not INPUT_FILE.exists():
-        raise FileNotFoundError(f"Input dataset not found: {INPUT_FILE}")
+    if not PACKAGES_FILE.exists():
+        raise FileNotFoundError(
+            f"Input dataset not found: {PACKAGES_FILE}"
+        )
 
-    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    con = duckdb.connect(database=":memory:")
+    EXPERIMENT_SUMMARY_FILE.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    con = get_connection()
 
     try:
-        packages = con.read_parquet(str(INPUT_FILE))
-        packages.create_view("packages")
+        load_parquet_view(
+            con,
+            "packages",
+            PACKAGES_FILE,
+        )
 
         # Summarize packages within each experiment.
         summary = con.sql("""
@@ -38,7 +47,7 @@ def main():
         """)
 
         summary.write_parquet(
-            str(OUTPUT_FILE),
+            str(EXPERIMENT_SUMMARY_FILE),
             compression="zstd",
         )
 
@@ -60,7 +69,7 @@ def main():
                     WHERE pooled_ctr IS NULL
                 ) AS experiments_with_null_pooled_ctr
             FROM read_parquet(?)
-        """, [str(OUTPUT_FILE)]).df()
+        """, [str(EXPERIMENT_SUMMARY_FILE)]).df()
 
         print("\nEXPERIMENT SUMMARY VALIDATION")
         print("=" * 60)
@@ -68,12 +77,16 @@ def main():
 
         print("\nSAMPLE EXPERIMENTS")
         print("=" * 60)
-        print(con.execute("""
-            SELECT *
-            FROM read_parquet(?)
-            ORDER BY package_count DESC
-            LIMIT 5
-        """, [str(OUTPUT_FILE)]).df().to_string(index=False))
+        print(
+            con.execute("""
+                SELECT *
+                FROM read_parquet(?)
+                ORDER BY package_count DESC
+                LIMIT 5
+            """, [str(EXPERIMENT_SUMMARY_FILE)])
+            .df()
+            .to_string(index=False)
+        )
 
         total = result.iloc[0]
 
@@ -81,12 +94,16 @@ def main():
             raise ValueError("Unexpected experiment count.")
 
         if total["total_packages"] != 22666:
-            raise ValueError("Package count does not match the source.")
+            raise ValueError(
+                "Package count does not match the source."
+            )
 
         if total["experiments_with_null_pooled_ctr"] != 0:
-            raise ValueError("Some experiments have a null pooled CTR.")
+            raise ValueError(
+                "Some experiments have a null pooled CTR."
+            )
 
-        print(f"\nOutput saved to: {OUTPUT_FILE}")
+        print(f"\nOutput saved to: {EXPERIMENT_SUMMARY_FILE}")
         print("\nSUCCESS: Experiment summary validated.")
 
     finally:

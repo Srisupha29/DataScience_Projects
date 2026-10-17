@@ -1,19 +1,17 @@
-from pathlib import Path
-
-import duckdb
-
-
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-PROCESSED_DIR = PROJECT_DIR / "data" / "processed"
-
-PACKAGES_FILE = PROCESSED_DIR / "packages.parquet"
-BALANCE_FILE = PROCESSED_DIR / "impression_balance.parquet"
-
-OUTPUT_FILE = PROCESSED_DIR / "within_experiment_comparisons.parquet"
+from utils import (
+    PACKAGES_FILE,
+    IMPRESSION_BALANCE_FILE,
+    WITHIN_EXPERIMENT_FILE,
+    get_connection,
+    load_parquet_view,
+)
 
 
 def main():
-    required_files = [PACKAGES_FILE, BALANCE_FILE]
+    required_files = [
+        PACKAGES_FILE,
+        IMPRESSION_BALANCE_FILE,
+    ]
 
     for file_path in required_files:
         if not file_path.exists():
@@ -21,13 +19,25 @@ def main():
                 f"Required dataset not found: {file_path}"
             )
 
-    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    WITHIN_EXPERIMENT_FILE.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
-    con = duckdb.connect(database=":memory:")
+    con = get_connection()
 
     try:
-        con.read_parquet(str(PACKAGES_FILE)).create_view("packages")
-        con.read_parquet(str(BALANCE_FILE)).create_view("impression_balance")
+        load_parquet_view(
+            con,
+            "packages",
+            PACKAGES_FILE,
+        )
+
+        load_parquet_view(
+            con,
+            "impression_balance",
+            IMPRESSION_BALANCE_FILE,
+        )
 
         comparisons = con.execute("""
             WITH experiment_baselines AS (
@@ -121,14 +131,13 @@ def main():
                 .to_string(index=False)
             )
 
-    
         con.register("comparison_results", comparisons)
 
         con.execute("""
             COPY comparison_results
             TO ?
             (FORMAT PARQUET, COMPRESSION ZSTD)
-        """, [str(OUTPUT_FILE)])
+        """, [str(WITHIN_EXPERIMENT_FILE)])
 
         print("\nWITHIN-EXPERIMENT COMPARISON DATASET")
         print("=" * 60)
@@ -171,7 +180,7 @@ def main():
             .to_string(index=False)
         )
 
-        print(f"\nSaved dataset: {OUTPUT_FILE}")
+        print(f"\nSaved dataset: {WITHIN_EXPERIMENT_FILE}")
 
     finally:
         con.close()

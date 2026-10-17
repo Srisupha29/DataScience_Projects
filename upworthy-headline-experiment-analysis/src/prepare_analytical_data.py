@@ -1,45 +1,29 @@
-from pathlib import Path
-import duckdb
 
-# 1. Locate the project and source data.
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-RAW_FILE = (
-    PROJECT_DIR
-    / "data"
-    / "raw"
-    / "upworthy-archive-exploratory-packages-03.12.2020.csv"
+from utils import (
+    RAW_FILE,
+    PROCESSED_DIR,
+    PACKAGES_FILE,
+    EDITORIAL_FILE,
+    get_connection,
+    load_raw_view,
 )
-OUTPUT_FILE = PROJECT_DIR / "data" / "processed" / "packages.parquet"
+
+EDITORIAL_COLUMNS = ["winner", "first_place", "significance"]
 
 
 def main():
-    # 2. Check that the source file exists.
     if not RAW_FILE.exists():
         raise FileNotFoundError(f"Source CSV not found: {RAW_FILE}")
 
-    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-    # 3. Connect to an in-memory DuckDB database.
-    con = duckdb.connect(database=":memory:")
+    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+    con = get_connection()
 
     try:
-        # 4. Read the CSV without modifying the original file.
-        packages = con.read_csv(
-            str(RAW_FILE),
-            header=True,
-            auto_detect=True,
-        )
-        packages.create_view("source_packages")
+        load_raw_view(con)
 
-        # 5. Inspect the schema.
-        print("\nDATASET SCHEMA")
-        print("=" * 60)
-        print(con.execute("DESCRIBE source_packages").df().to_string(index=False))
-
-        # 6. Validate the basic dataset structure.
-        summary = con.execute("""
+        source_summary = con.execute("""
             SELECT
-                COUNT(*) AS total_packages,
+                COUNT(*) AS total_rows,
                 COUNT(DISTINCT clickability_test_id) AS total_experiments,
                 COUNT(*) FILTER (
                     WHERE clickability_test_id IS NULL
@@ -55,34 +39,201 @@ def main():
                 ) AS nonpositive_impressions,
                 COUNT(*) FILTER (
                     WHERE clicks < 0 OR clicks > impressions
-                ) AS invalid_click_counts
+                ) AS invalid_click_counts,
+                COUNT(*) FILTER (
+                    WHERE column00 IS NULL
+                ) AS missing_row_ids
             FROM source_packages
         """).df()
 
-        print("\nVALIDATION SUMMARY")
+        print("\nSOURCE VALIDATION")
         print("=" * 60)
-        print(summary.to_string(index=False))
+        print(source_summary.to_string(index=False))
 
-        # 7. Export a reproducible analytical copy in Parquet format.
-        packages.write_parquet(str(OUTPUT_FILE), compression="zstd")
+        checks = source_summary.iloc[0]
 
-        print("\nOUTPUT")
+        validation_rules = {
+            "total_rows": (
+                lambda value: value > 0,
+                "The source CSV contains no rows.",
+            ),
+            "total_experiments": (
+                lambda value: value > 0,
+                "The source CSV contains no experiments.",
+            ),
+            "missing_experiment_ids": (
+                lambda value: value == 0,
+                "Missing experiment IDs were found.",
+            ),
+            "missing_impressions": (
+                lambda value: value == 0,
+                "Missing impression counts were found.",
+            ),
+            "missing_clicks": (
+                lambda value: value == 0,
+                "Missing click counts were found.",
+            ),
+            "nonpositive_impressions": (
+                lambda value: value == 0,
+                "Rows with nonpositive impressions were found.",
+            ),
+            "invalid_click_counts": (
+                lambda value: value == 0,
+                "Rows with invalid click counts were found.",
+            ),
+            "missing_row_ids": (
+                lambda value: value == 0,
+                "Missing source row IDs were found.",
+            ),
+        }
+
+        validation_errors = [
+            message
+            for column, (condition, message) in validation_rules.items()
+            if not condition(checks[column])
+        ]
+
+        if validation_errors:
+            raise ValueError(
+                "Source validation failed:\n- "
+                + "\n- ".join(validation_errors)
+            )
+
+        con.execute("""
+            CREATE VIEW analytical_packages AS
+            SELECT
+                column00 AS row_id,
+                sha256(
+                    to_json(
+                        struct_pack(
+                            experiment_id := clickability_test_id,
+                            headline := lower(trim(coalesce(headline, ''))),
+                            image_id := coalesce(
+                                eyecatcher_id,
+                                '<MISSING_IMAGE_ID>'
+                            )
+                        )
+                    )
+                ) AS package_id,
+                * EXCLUDE (
+                    column00,
+                    winner,
+                    first_place,
+                    significance
+                ),
+                clicks::DOUBLE / NULLIF(impressions, 0) AS ctr
+            FROM source_packages
+        """)
+
+        con.execute("""
+            CREATE VIEW editorial_metadata AS
+            SELECT
+                column00 AS row_id,
+                winner,
+                first_place,
+                significance
+            FROM source_packages
+        """)
+
+        identifier_checks = con.execute("""
+            SELECT
+                COUNT(*) AS total_rows,
+                COUNT(DISTINCT row_id) AS distinct_row_ids,
+                COUNT(*) FILTER (
+                    WHERE row_id IS NULL
+                ) AS missing_row_ids,
+                COUNT(*) FILTER (
+                    WHERE package_id IS NULL
+                ) AS missing_package_ids,
+                COUNT(DISTINCT package_id) AS distinct_package_ids
+            FROM analytical_packages
+        """).df()
+
+        print("\nIDENTIFIER VALIDATION")
         print("=" * 60)
-        print(f"Parquet file: {OUTPUT_FILE}")
-        print(f"File size: {OUTPUT_FILE.stat().st_size / (1024 ** 2):.2f} MB")
+        print(identifier_checks.to_string(index=False))
 
-        # 8. Confirm the exported file can be read.
-        exported_rows = con.execute(
-            "SELECT COUNT(*) FROM read_parquet(?)",
-            [str(OUTPUT_FILE)],
-        ).fetchone()[0]
+        ids = identifier_checks.iloc[0]
 
-        print(f"Rows exported: {exported_rows:,}")
+        if ids["total_rows"] != ids["distinct_row_ids"]:
+            raise ValueError("Source row IDs are not unique.")
 
-        if exported_rows != summary.iloc[0]["total_packages"]:
-            raise ValueError("Exported row count does not match source row count.")
+        if ids["missing_row_ids"] != 0:
+            raise ValueError("Missing row IDs were found.")
 
-        print("\nSUCCESS: Exported row count matches the source.")
+        if ids["missing_package_ids"] != 0:
+            raise ValueError("Missing package IDs were found.")
+
+        if ids["total_rows"] != checks["total_rows"]:
+            raise ValueError(
+                "Analytical row count differs from source row count."
+            )
+
+        con.table("analytical_packages").write_parquet(
+            str(PACKAGES_FILE),
+            compression="zstd",
+        )
+
+        con.table("editorial_metadata").write_parquet(
+            str(EDITORIAL_FILE),
+            compression="zstd",
+        )
+
+        exported_packages = con.execute(
+            "SELECT * FROM read_parquet(?)",
+            [str(PACKAGES_FILE)],
+        ).df()
+
+        exported_metadata = con.execute(
+            "SELECT * FROM read_parquet(?)",
+            [str(EDITORIAL_FILE)],
+        ).df()
+
+        package_columns = set(exported_packages.columns)
+        metadata_columns = set(exported_metadata.columns)
+
+        forbidden_columns = set(EDITORIAL_COLUMNS) & package_columns
+
+        if forbidden_columns:
+            raise ValueError(
+                "Editorial metadata leaked into packages.parquet: "
+                f"{sorted(forbidden_columns)}"
+            )
+
+        if not set(EDITORIAL_COLUMNS).issubset(metadata_columns):
+            raise ValueError(
+                "Editorial metadata file is missing expected columns."
+            )
+
+        if len(exported_packages) != len(exported_metadata):
+            raise ValueError(
+                "Package data and editorial metadata row counts do not match."
+            )
+
+        if exported_metadata["row_id"].duplicated().any():
+            raise ValueError("Editorial metadata row IDs are not unique.")
+
+        if set(exported_packages["row_id"]) != set(exported_metadata["row_id"]):
+            raise ValueError(
+                "Package and editorial metadata row IDs do not match."
+            )
+
+        print("\nEXPORT VALIDATION")
+        print("=" * 60)
+        print(f"Packages file: {PACKAGES_FILE}")
+        print(f"Packages rows: {len(exported_packages):,}")
+        print(f"Packages columns: {len(exported_packages.columns)}")
+        print(f"Editorial metadata file: {EDITORIAL_FILE}")
+        print(f"Editorial metadata rows: {len(exported_metadata):,}")
+        print(
+            "Editorial metadata columns: "
+            f"{len(exported_metadata.columns)}"
+        )
+        print(
+            "Editorial columns in packages.parquet: "
+            f"{sorted(forbidden_columns)}"
+        )
+        print("All checks passed.")
 
     finally:
         con.close()

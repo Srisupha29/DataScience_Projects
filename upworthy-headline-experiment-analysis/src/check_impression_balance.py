@@ -1,13 +1,10 @@
-from pathlib import Path
-
-import duckdb
-
-
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-PACKAGES_FILE = PROJECT_DIR / "data" / "processed" / "packages.parquet"
-OUTPUT_FILE = (
-    PROJECT_DIR / "data" / "processed" / "impression_balance.parquet"
+from utils import (
+    PACKAGES_FILE,
+    IMPRESSION_BALANCE_FILE,
+    get_connection,
+    load_parquet_view,
 )
+
 
 # Flag exposure ratios at or above this threshold for investigation.
 IMBALANCE_THRESHOLD = 1.5
@@ -19,12 +16,19 @@ def main():
             f"Analytical dataset not found: {PACKAGES_FILE}"
         )
 
-    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    IMPRESSION_BALANCE_FILE.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
-    con = duckdb.connect(database=":memory:")
+    con = get_connection()
 
     try:
-        con.read_parquet(str(PACKAGES_FILE)).create_view("packages")
+        load_parquet_view(
+            con,
+            "packages",
+            PACKAGES_FILE,
+        )
 
         balance = con.execute(
             """
@@ -79,7 +83,7 @@ def main():
             TO ?
             (FORMAT PARQUET, COMPRESSION ZSTD)
             """,
-            [str(OUTPUT_FILE)],
+            [str(IMPRESSION_BALANCE_FILE)],
         )
 
         print("\nIMPRESSION BALANCE DIAGNOSTIC")
@@ -125,7 +129,9 @@ def main():
             .to_string(index=False)
         )
 
-        print(f"\nSaved diagnostic dataset: {OUTPUT_FILE}")
+        print(
+            f"\nSaved diagnostic dataset: {IMPRESSION_BALANCE_FILE}"
+        )
 
     finally:
         con.close()
