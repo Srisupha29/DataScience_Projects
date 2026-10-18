@@ -1,8 +1,5 @@
-
 from pathlib import Path
-
 import duckdb
-
 
 # Project directories
 PROJECT_DIR = Path(__file__).resolve().parent.parent
@@ -15,6 +12,29 @@ RAW_FILE = (
     RAW_DIR
     / "upworthy-archive-exploratory-packages-03.12.2020.csv"
 )
+
+# Expected source dataset dimensions.
+# These constants are validation expectations, not substitutes
+# for measuring the actual dataset.
+EXPECTED_PACKAGE_ROWS = 22666
+EXPECTED_EXPERIMENTS = 4873
+
+# Randomization-risk review window.
+# Source: Upworthy Research Archive documentation.
+# The project uses this documented period as a screening window, not as proof that an experiment was randomized.
+# Project-defined screening window. Official source documentation
+# has not yet been verified to establish these dates as an official
+# randomization-risk period.
+RANDOMIZATION_RISK_START = "2013-06-25"
+RANDOMIZATION_RISK_END = "2014-01-10"
+
+# Flag experiments when maximum row-level impressions are at
+# least 1.5 times minimum row-level impressions.
+# This is a project-defined screening threshold, not a formal
+# statistical test of randomization or exposure balance.
+# Project-defined diagnostic threshold, not a statistical
+# significance cutoff. Ratios above this value are flagged for review.
+IMPRESSION_IMBALANCE_THRESHOLD = 1.5
 
 # Processed datasets
 PACKAGES_FILE = PROCESSED_DIR / "packages.parquet"
@@ -31,6 +51,7 @@ IMPRESSION_BALANCE_FILE = (
 WITHIN_EXPERIMENT_FILE = (
     PROCESSED_DIR / "within_experiment_comparisons.parquet"
 )
+
 
 # Explicit schema for the source CSV.
 # DuckDB will use these types instead of inferring them.
@@ -53,6 +74,11 @@ RAW_COLUMN_TYPES = {
     "square": "VARCHAR",
     "test_week": "BIGINT",
 }
+
+
+def normalize_headline_sql(column_name="headline"):
+    """Return a SQL expression that normalizes headline case and whitespace."""
+    return f"LOWER(TRIM({column_name}))"
 
 
 def get_connection():

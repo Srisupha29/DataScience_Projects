@@ -15,7 +15,7 @@ def main():
             con.execute(
                 """
                 SELECT
-                    COUNT(*) AS headline_variants,
+                    COUNT(*) AS source_rows,
                     COUNT(DISTINCT clickability_test_id)
                         AS experiments,
                     SUM(impressions) AS total_impressions,
@@ -31,7 +31,7 @@ def main():
         )
 
         # 2. Number of source rows per experiment
-        print("\n=== 2. VARIANTS PER EXPERIMENT ===")
+        print("\n=== 2. SOURCE ROWS PER EXPERIMENT ===")
 
         print(
             con.execute(
@@ -39,15 +39,15 @@ def main():
                 WITH experiment_sizes AS (
                     SELECT
                         clickability_test_id,
-                        COUNT(*) AS variants
+                        COUNT(*) AS source_rows
                     FROM upworthy
                     GROUP BY clickability_test_id
                 )
                 SELECT
-                    MIN(variants) AS min_variants,
-                    MEDIAN(variants) AS median_variants,
-                    ROUND(AVG(variants), 2) AS mean_variants,
-                    MAX(variants) AS max_variants,
+                    MIN(source_rows) AS min_source_rows,
+                    MEDIAN(source_rows) AS median_source_rows,
+                    ROUND(AVG(source_rows), 2) AS mean_source_rows,
+                    MAX(source_rows) AS max_source_rows,
                     COUNT(*) AS experiments
                 FROM experiment_sizes
                 """
@@ -55,23 +55,23 @@ def main():
         )
 
         # 3. Distribution of experiment sizes
-        print("\n=== 3. EXPERIMENT SIZE DISTRIBUTION ===")
+        print("\n=== 3. SOURCE ROW COUNT DISTRIBUTION ===")
 
         print(
             con.execute(
                 """
                 SELECT
-                    variants,
+                    source_rows,
                     COUNT(*) AS experiment_count
                 FROM (
                     SELECT
                         clickability_test_id,
-                        COUNT(*) AS variants
+                        COUNT(*) AS source_rows
                     FROM upworthy
                     GROUP BY clickability_test_id
                 ) AS experiment_sizes
-                GROUP BY variants
-                ORDER BY variants
+                GROUP BY source_rows
+                ORDER BY source_rows
                 """
             ).df().to_string(index=False)
         )

@@ -1,9 +1,11 @@
-
 from utils import (
     RAW_FILE,
     PROCESSED_DIR,
     PACKAGES_FILE,
     EDITORIAL_FILE,
+    EXPECTED_PACKAGE_ROWS,
+    EXPECTED_EXPERIMENTS,
+    normalize_headline_sql,
     get_connection,
     load_raw_view,
 )
@@ -54,12 +56,12 @@ def main():
 
         validation_rules = {
             "total_rows": (
-                lambda value: value > 0,
-                "The source CSV contains no rows.",
+                lambda value: value == EXPECTED_PACKAGE_ROWS,
+                f"Expected {EXPECTED_PACKAGE_ROWS:,} source rows.",
             ),
             "total_experiments": (
-                lambda value: value > 0,
-                "The source CSV contains no experiments.",
+                lambda value: value == EXPECTED_EXPERIMENTS,
+                f"Expected {EXPECTED_EXPERIMENTS:,} experiments.",
             ),
             "missing_experiment_ids": (
                 lambda value: value == 0,
@@ -99,7 +101,11 @@ def main():
                 + "\n- ".join(validation_errors)
             )
 
-        con.execute("""
+        normalized_headline = normalize_headline_sql(
+            "headline"
+        )
+
+        con.execute(f"""
             CREATE VIEW analytical_packages AS
             SELECT
                 column00 AS row_id,
@@ -107,7 +113,7 @@ def main():
                     to_json(
                         struct_pack(
                             experiment_id := clickability_test_id,
-                            headline := lower(trim(coalesce(headline, ''))),
+                            headline := {normalized_headline},
                             image_id := coalesce(
                                 eyecatcher_id,
                                 '<MISSING_IMAGE_ID>'
@@ -121,6 +127,7 @@ def main():
                     first_place,
                     significance
                 ),
+                {normalized_headline} AS normalized_headline,
                 clicks::DOUBLE / NULLIF(impressions, 0) AS ctr
             FROM source_packages
         """)
@@ -134,6 +141,54 @@ def main():
                 significance
             FROM source_packages
         """)
+
+        # Diagnose repeated package IDs before deciding whether
+        # multiple rows represent disjoint time slices or snapshots.
+        repeated_packages = con.execute("""
+            SELECT
+                clickability_test_id AS experiment_id,
+                package_id,
+                COUNT(*) AS source_row_count,
+                COUNT(DISTINCT created_at) AS distinct_created_at,
+                COUNT(DISTINCT updated_at) AS distinct_updated_at,
+                MIN(created_at) AS first_created_at,
+                MAX(created_at) AS last_created_at,
+                MIN(updated_at) AS first_updated_at,
+                MAX(updated_at) AS last_updated_at,
+                SUM(impressions) AS summed_impressions,
+                SUM(clicks) AS summed_clicks,
+                MIN(impressions) AS min_row_impressions,
+                MAX(impressions) AS max_row_impressions
+            FROM analytical_packages
+            GROUP BY
+                clickability_test_id,
+                package_id
+            HAVING COUNT(*) > 1
+            ORDER BY source_row_count DESC, experiment_id
+        """).df()
+
+        print("\nREPEATED PACKAGE DIAGNOSTICS")
+        print("=" * 60)
+        print(
+            "Repeated package groups: "
+            f"{len(repeated_packages):,}"
+        )
+
+        if not repeated_packages.empty:
+            print(
+                "Source rows belonging to repeated groups: "
+                f"{repeated_packages['source_row_count'].sum():,}"
+            )
+            print("\nLargest repeated groups:")
+            print(
+                repeated_packages.head(10).to_string(index=False)
+            )
+            print(
+                "\nInterpretation: timestamp differences alone do not "
+                "establish whether counts are additive time slices "
+                "or repeated snapshots. No aggregation is performed "
+                "by this script."
+            )
 
         identifier_checks = con.execute("""
             SELECT
@@ -213,7 +268,9 @@ def main():
         if exported_metadata["row_id"].duplicated().any():
             raise ValueError("Editorial metadata row IDs are not unique.")
 
-        if set(exported_packages["row_id"]) != set(exported_metadata["row_id"]):
+        if set(exported_packages["row_id"]) != set(
+            exported_metadata["row_id"]
+        ):
             raise ValueError(
                 "Package and editorial metadata row IDs do not match."
             )

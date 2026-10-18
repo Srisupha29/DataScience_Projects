@@ -7,7 +7,7 @@
 - **Rows:** 22,666
 - **Columns:** 17
 - **Distinct experiments:** 4,873
-- **Unit of observation:** Package (headline-and-image combination)
+- **Unit of observation:** Source record representing a recorded package. A package identity is approximated using experiment ID, normalized headline text, and recorded image ID. The relationship between repeated records and independent exposure observations remains unresolved.
 - **Outcome:** Clicks out of impressions
 - **Scope:** Exploratory analysis only; confirmatory data will not be examined until hypotheses and analysis decisions are documented.
 
@@ -40,7 +40,7 @@
 - No missing or negative click counts were found.
 - No rows had more clicks than impressions.
 - Each experiment contains between 2 and 14 rows; the median is 4.
-- Some experiments contain repeated headline text with distinct slugs. These records require further investigation before defining the analytical unit.
+- Repeated-record investigation identified 22,666 source rows and 19,171 distinct package fingerprints, with 1,148 repeated fingerprint groups. Records sharing the same experiment, headline, slug, and image ID can have different impression and click counts. The source-record generation process and statistical independence remain unresolved; do not deduplicate or aggregate these records without further evidence.
 
 ## Initial metric
 
@@ -68,3 +68,28 @@ The pooled figure is descriptive and does not measure the effect of a particular
 
 Upworthy Research Archive, “Data in the Upworthy Research Archive”:
 https://upworthy.natematias.com/about-the-archive.html
+
+## Impression-imbalance screening
+
+Five experiments exceeded the project-defined maximum-to-minimum impression ratio threshold of 1.5:
+
+| Experiment ID | Maximum-to-minimum impression ratio |
+|---|---:|
+| `51d1e3934a5d3ff28b0001b0` | 1.625 |
+| `51ddbd415d8e6fa6d2006471` | 1.657 |
+| `526d4c1c94d1f182f600574f` | 3.176 |
+| `52a5cf335de7b1f7a3000e04` | 1.864 |
+| `5348bd88fe9c5a1bf500001b` | 13.309 |
+
+These are screening flags, not proof of failed randomization or statistical significance. The threshold is project-defined. The randomization-risk date window is a separate screening dimension and should not be interpreted as verified historical evidence without supporting documentation.
+
+The flagged experiments remain available for subsequent eligibility decisions; they are not automatically excluded from all descriptive analysis.
+\n### Missing image identifiers and fingerprint collisions
+
+The `package_id` fingerprint uses a placeholder when the image ID is
+missing. Records with the same experiment ID and normalized headline
+but different unknown images may therefore receive the same fingerprint.
+The five experiments containing missing image IDs require caution when
+classifying image variation or counting distinct stimulus identities.
+A shared fingerprint in these cases does not establish that the visual
+content was identical.\n

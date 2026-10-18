@@ -1,3 +1,4 @@
+
 from utils import (
     PACKAGES_FILE,
     IMPRESSION_BALANCE_FILE,
@@ -44,8 +45,9 @@ def main():
                 SELECT
                     clickability_test_id AS experiment_id,
                     COUNT(*) AS source_row_count,
-                    SUM(clicks) AS source_row_clicks,
-                    SUM(impressions) AS source_row_impressions,
+                    COUNT(DISTINCT package_id) AS distinct_package_ids,
+                    SUM(clicks) AS experiment_total_clicks,
+                    SUM(impressions) AS experiment_total_impressions,
                     SUM(clicks)::DOUBLE
                         / NULLIF(SUM(impressions), 0)
                         AS experiment_baseline_ctr
@@ -59,24 +61,83 @@ def main():
                     p.package_id,
                     p.clickability_test_id AS experiment_id,
                     p.headline,
+                    p.normalized_headline,
                     p.eyecatcher_id AS image_id,
                     p.created_at,
                     p.impressions,
                     p.clicks,
                     p.ctr AS package_ctr,
+
                     b.source_row_count,
-                    b.source_row_clicks,
-                    b.source_row_impressions,
+                    b.distinct_package_ids,
+                    b.experiment_total_clicks,
+                    b.experiment_total_impressions,
                     b.experiment_baseline_ctr,
 
+                    b.experiment_total_clicks - p.clicks
+                        AS rest_of_experiment_clicks,
+
+                    b.experiment_total_impressions - p.impressions
+                        AS rest_of_experiment_impressions,
+
                     (
-                        p.ctr - b.experiment_baseline_ctr
-                    ) AS ctr_difference,
+                        b.experiment_total_clicks - p.clicks
+                    )::DOUBLE
+                    / NULLIF(
+                        b.experiment_total_impressions - p.impressions,
+                        0
+                    ) AS rest_of_experiment_ctr,
+
+                    (
+                        p.ctr -
+                        (
+                            b.experiment_total_clicks - p.clicks
+                        )::DOUBLE
+                        / NULLIF(
+                            b.experiment_total_impressions - p.impressions,
+                            0
+                        )
+                    ) AS ctr_difference_vs_rest,
 
                     100.0 * (
-                        p.ctr - b.experiment_baseline_ctr
-                    ) / NULLIF(b.experiment_baseline_ctr, 0)
-                        AS relative_ctr_difference_pct
+                        p.ctr -
+                        (
+                            b.experiment_total_clicks - p.clicks
+                        )::DOUBLE
+                        / NULLIF(
+                            b.experiment_total_impressions - p.impressions,
+                            0
+                        )
+                    ) / NULLIF(
+                        (
+                            b.experiment_total_clicks - p.clicks
+                        )::DOUBLE
+                        / NULLIF(
+                            b.experiment_total_impressions - p.impressions,
+                            0
+                        ),
+                        0
+                    ) AS relative_ctr_difference_vs_rest_pct,
+
+                    CASE
+                        WHEN b.experiment_total_clicks = 0
+                            THEN TRUE
+                        ELSE FALSE
+                    END AS zero_click_experiment,
+
+                    CASE
+                        WHEN b.experiment_total_clicks = 0
+                            THEN 'Zero-click experiment'
+                        WHEN b.source_row_count <= 1
+                            THEN 'No other source rows to compare'
+                        WHEN b.experiment_total_impressions - p.impressions <= 0
+                            THEN 'No remaining impressions'
+                        WHEN b.experiment_total_clicks - p.clicks = 0
+                            THEN 'Rest-of-experiment CTR is zero'
+                        WHEN b.experiment_total_clicks = 0
+                            THEN 'Zero-click experiment'
+                        ELSE 'Relative CTR difference defined'
+                    END AS comparison_status
 
                 FROM packages AS p
                 INNER JOIN experiment_baselines AS b
@@ -98,39 +159,6 @@ def main():
                 c.row_id
         """).df()
 
-        undefined_rows = comparisons[
-            comparisons["relative_ctr_difference_pct"].isna()
-        ]
-
-        print("\nUNDEFINED RELATIVE CTR INVESTIGATION")
-        print("=" * 60)
-
-        if undefined_rows.empty:
-            print("No undefined relative CTR comparisons found.")
-        else:
-            print(
-                undefined_rows[
-                    [
-                        "experiment_id",
-                        "row_id",
-                        "headline",
-                        "impressions",
-                        "clicks",
-                        "package_ctr",
-                        "experiment_baseline_ctr",
-                    ]
-                ].to_string(index=False)
-            )
-
-            print("\nBaseline CTR values for affected experiments:")
-            print(
-                undefined_rows[
-                    ["experiment_id", "experiment_baseline_ctr"]
-                ]
-                .drop_duplicates()
-                .to_string(index=False)
-            )
-
         con.register("comparison_results", comparisons)
 
         con.execute("""
@@ -151,12 +179,27 @@ def main():
             f"{comparisons['experiment_id'].nunique():,}"
         )
         print(
-            "Rows with missing experiment baseline CTR: "
-            f"{comparisons['experiment_baseline_ctr'].isna().sum():,}"
+            "Rows with undefined rest-of-experiment CTR: "
+            f"{comparisons['rest_of_experiment_ctr'].isna().sum():,}"
         )
         print(
             "Rows with undefined relative CTR difference: "
-            f"{comparisons['relative_ctr_difference_pct'].isna().sum():,}"
+            f"{comparisons['relative_ctr_difference_vs_rest_pct'].isna().sum():,}"
+        )
+        print(
+            "Zero-click experiments: "
+            f"{comparisons.loc[
+                comparisons['zero_click_experiment'],
+                'experiment_id'
+            ].nunique():,}"
+        )
+
+        print("\nCOMPARISON STATUS COUNTS")
+        print("-" * 60)
+        print(
+            comparisons["comparison_status"]
+            .value_counts(dropna=False)
+            .to_string()
         )
 
         print("\nEXAMPLE COMPARISONS")
@@ -164,14 +207,16 @@ def main():
 
         example_columns = [
             "experiment_id",
-            "headline",
+            "normalized_headline",
+            "package_id",
             "impressions",
             "clicks",
             "package_ctr",
-            "experiment_baseline_ctr",
-            "relative_ctr_difference_pct",
-            "balance_status",
-            "randomization_risk_screen",
+            "rest_of_experiment_ctr",
+            "ctr_difference_vs_rest",
+            "relative_ctr_difference_vs_rest_pct",
+            "zero_click_experiment",
+            "comparison_status",
         ]
 
         print(
@@ -181,6 +226,12 @@ def main():
         )
 
         print(f"\nSaved dataset: {WITHIN_EXPERIMENT_FILE}")
+
+        print(
+            "\nInterpretation note: comparisons are descriptive "
+            "source-row comparisons, not independent variant-level "
+            "estimates or statistical significance tests."
+        )
 
     finally:
         con.close()

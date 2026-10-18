@@ -4,7 +4,6 @@ from utils import (
     load_parquet_view,
 )
 
-
 FLAGGED_EXPERIMENTS = [
     "5348bd88fe9c5a1bf500001b",
     "526d4c1c94d1f182f600574f",
@@ -29,16 +28,24 @@ def main():
             PACKAGES_FILE,
         )
 
+        print("\nFLAGGED EXPERIMENT RECORDS")
+        print("=" * 100)
+
         results = con.execute("""
             SELECT
                 clickability_test_id AS experiment_id,
                 package_id,
-                headline,
+                normalized_headline,
                 eyecatcher_id,
                 created_at,
                 impressions,
                 clicks,
-                ctr
+                ctr,
+                COUNT(*) OVER (
+                    PARTITION BY
+                        clickability_test_id,
+                        package_id
+                ) AS package_record_count
             FROM packages
             WHERE clickability_test_id IN (
                 SELECT UNNEST(?)
@@ -49,8 +56,6 @@ def main():
                 created_at
         """, [FLAGGED_EXPERIMENTS]).df()
 
-        print("\nFLAGGED EXPERIMENT VARIANTS AND RECORDS")
-        print("=" * 100)
         print(results.to_string(index=False))
 
         print("\nSUMMARY BY EXPERIMENT")
@@ -60,13 +65,19 @@ def main():
             SELECT
                 clickability_test_id AS experiment_id,
                 COUNT(*) AS source_rows,
-                COUNT(DISTINCT package_id) AS distinct_package_ids,
-                COUNT(DISTINCT lower(trim(headline)))
+                COUNT(DISTINCT package_id)
+                    AS distinct_package_ids,
+                COUNT(DISTINCT normalized_headline)
                     AS distinct_headlines,
-                COUNT(DISTINCT eyecatcher_id) AS distinct_image_ids,
+                COUNT(DISTINCT eyecatcher_id)
+                    AS distinct_image_ids,
                 COUNT(*) FILTER (
                     WHERE eyecatcher_id IS NULL
+                       OR trim(eyecatcher_id) = ''
                 ) AS missing_image_id_rows,
+                COUNT(*) FILTER (
+                    WHERE package_id IS NULL
+                ) AS missing_package_id_rows,
                 MIN(created_at) AS first_record,
                 MAX(created_at) AS last_record
             FROM packages

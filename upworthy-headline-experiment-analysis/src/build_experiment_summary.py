@@ -1,6 +1,9 @@
+
 from utils import (
     PACKAGES_FILE,
     EXPERIMENT_SUMMARY_FILE,
+    EXPECTED_PACKAGE_ROWS,
+    EXPECTED_EXPERIMENTS,
     get_connection,
     load_parquet_view,
 )
@@ -26,13 +29,18 @@ def main():
             PACKAGES_FILE,
         )
 
-        # Summarize packages within each experiment.
+        # Summarize source rows within each experiment.
+        # Headline counts use the normalized headline column.
         summary = con.sql("""
             SELECT
                 clickability_test_id,
                 COUNT(*) AS package_count,
-                COUNT(DISTINCT headline) AS distinct_headlines,
-                COUNT(DISTINCT eyecatcher_id) AS distinct_image_ids,
+                COUNT(DISTINCT normalized_headline)
+                    AS distinct_headlines,
+                COUNT(DISTINCT package_id)
+                    AS distinct_package_ids,
+                COUNT(DISTINCT eyecatcher_id)
+                    AS distinct_image_ids,
                 COUNT(*) FILTER (
                     WHERE eyecatcher_id IS NULL
                 ) AS missing_image_id_packages,
@@ -63,6 +71,9 @@ def main():
                     WHERE distinct_image_ids > 1
                 ) AS experiments_with_multiple_image_ids,
                 COUNT(*) FILTER (
+                    WHERE distinct_package_ids > 1
+                ) AS experiments_with_multiple_package_ids,
+                COUNT(*) FILTER (
                     WHERE missing_image_id_packages > 0
                 ) AS experiments_with_missing_image_ids,
                 COUNT(*) FILTER (
@@ -90,12 +101,18 @@ def main():
 
         total = result.iloc[0]
 
-        if total["total_experiments"] != 4873:
-            raise ValueError("Unexpected experiment count.")
-
-        if total["total_packages"] != 22666:
+        if total["total_experiments"] != EXPECTED_EXPERIMENTS:
             raise ValueError(
-                "Package count does not match the source."
+                "Unexpected experiment count: "
+                f"{total['total_experiments']:,}; "
+                f"expected {EXPECTED_EXPERIMENTS:,}."
+            )
+
+        if total["total_packages"] != EXPECTED_PACKAGE_ROWS:
+            raise ValueError(
+                "Source-row count does not match the expected count: "
+                f"{total['total_packages']:,}; "
+                f"expected {EXPECTED_PACKAGE_ROWS:,}."
             )
 
         if total["experiments_with_null_pooled_ctr"] != 0:

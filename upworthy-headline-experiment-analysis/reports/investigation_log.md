@@ -2,7 +2,7 @@
 ## Data Investigation Log
 
 **Project phase:** Phase 1: Data Understanding and Profiling  
-**Status:** In progress  
+**Status:** Phase 1 closeout under review; documentation reconciliation pending.
 **Tools:** Python, DuckDB, pandas, SQL  
 **Source dataset:** `upworthy-archive-exploratory-packages-03.12.2020.csv`
 
@@ -289,9 +289,9 @@ Phase 1 is ready for review when:
 
 ### Phase 1 Status
 
-**Status: Completed.**
+**Status: Pending final documentation reconciliation and validation.**
 
-The initial investigations are complete. Before proceeding, review the investigation log and verify that the findings and limitations are recorded accurately. Any unresolved question affecting the validity of the analysis should remain explicitly documented rather than being silently assumed away.
+The initial investigations and analytical-dataset validation are complete. Finalize the investigation log by reconciling historical raw-text counts with current normalized-headline classifications, verifying image-ID missingness wording, and confirming that the documented next step matches the current workflow. Unresolved questions about repeated records and experimental design remain explicit limitations.
 
 ## Phase 1 completion criteria
 
@@ -305,7 +305,7 @@ Phase 1 is complete when:
 - A data dictionary and initial data-quality report are available.
 - The remaining structural questions have been investigated sufficiently to justify the next phase.
 
-**Next planned step:** Continue the structural investigation with `src/classify_experiments.py`. Do not begin confirmatory analysis before defining and preregistering the hypotheses and analysis plan.
+**Next planned step:** Begin Phase 2.1 with an eligibility audit using the current analytical datasets and `src/classify_comparison_candidates.py`. Define which experiments are suitable for each descriptive comparison, document diagnostic flags and exclusions, and retain unresolved experimental-design questions. Do not make causal or inferential claims until the assumptions and analysis method are justified.
 
 ## Identifier and Repeated-Record Investigation
 
@@ -332,3 +332,84 @@ Phase 1 is complete when:
   recording process and row semantics are established.
 - A recorded image ID does not prove visual identity, and a repeated
   stimulus identity does not prove independent experimental assignment.
+
+## Identifier Uniqueness Audit
+
+### Objective
+
+Determine whether source row IDs, slugs, and constructed stimulus identifiers uniquely identify records.
+
+### Findings
+
+| Candidate identifier | Distinct keys | Excess rows beyond distinct keys | Result |
+|---|---:|---:|---|
+| `row_id` | 22,666 | 0 | Unique in the source extract |
+| `clickability_test_id` + `slug` | 22,587 | 79 | Not unique |
+| `clickability_test_id` + normalized headline + `eyecatcher_id` | 19,171 | 3,495 | Not unique; used as a stimulus-identity proxy |
+| `clickability_test_id` + `slug` + `eyecatcher_id` | 22,636 | 30 | Not unique |
+
+### Interpretation
+
+The source row ID is the only tested identifier that uniquely identifies every row in the extract. Slugs and composite identifiers produce repeated keys.
+
+Repeated keys do not, by themselves, prove that records are erroneous duplicates. Records sharing the same experiment, headline, slug, and image ID can have different impression and click counts. The source-record generation process and the independence of these observations remain unresolved.
+
+### Analytical decisions
+
+1. Preserve all source rows.
+2. Retain `row_id` as the source-record identifier.
+3. Retain `clickability_test_id` as the experiment grouping identifier.
+4. Treat `package_id` as a constructed stimulus-identity proxy, not a unique source-record identifier.
+5. Do not deduplicate or aggregate repeated records until their semantics are established.
+6. Do not treat source-row uniqueness as evidence of statistical independence.
+
+### Remaining investigation
+
+Inspect records sharing the same experiment, slug, and image ID. Determine whether their counts and timestamps differ, and document any remaining uncertainty before selecting the unit of analysis.
+
+### Follow-up: Repeated Key and Headline Normalization
+
+A targeted audit examined records sharing the same experiment, slug, and image ID.
+
+One apparent exception had two distinct raw headline strings according to exact string comparison. Inspection confirmed that the difference was a leading whitespace character: one headline had length 55 and the other length 54. After trimming whitespace, both normalized to the same 54-character headline.
+
+The records nevertheless had different measurements:
+
+- Row 46751: 6,906 impressions and 91 clicks.
+- Row 46752: 6,863 impressions and 84 clicks.
+
+**Interpretation:** Exact headline comparison can overstate headline variation when whitespace differs. Normalized headline text is more appropriate for classifying textual variants, while the original headline must remain available for traceability.
+
+**Decision:** Preserve both source records. Do not deduplicate records solely because their normalized headline, experiment ID, slug, or image ID matches. The source does not establish why the measurements differ or whether the records represent independent observations.
+
+**Remaining limitation:** The process that generated repeated records and their changing counts remains unresolved. Statistical inference must account for this uncertainty rather than treating all source rows as independent observations by default.
+
+### Follow-up: Impression-Imbalance Review
+
+#### Method
+
+Reviewed the five experiments flagged by the project-defined maximum-to-minimum impression ratio threshold of 1.5. Examined the number of source rows, distinct package fingerprints, impression range, coefficient of variation, and whether each experiment falls within the project's defined randomization-risk screening window.
+
+#### Observed Results
+
+| Experiment ID | Source Rows | Distinct Package IDs | Minimum Impressions | Maximum Impressions | Max/Min Ratio | Risk-Window Screen |
+|---|---:|---:|---:|---:|---:|---|
+| `51d1e3934a5d3ff28b0001b0` | 4 | 4 | 2,763 | 4,490 | 1.625 | Within window |
+| `51ddbd415d8e6fa6d2006471` | 2 | 2 | 948 | 1,571 | 1.657 | Within window |
+| `526d4c1c94d1f182f600574f` | 5 | 5 | 17 | 54 | 3.176 | Within window |
+| `52a5cf335de7b1f7a3000e04` | 5 | 4 | 280 | 522 | 1.864 | Within window |
+| `5348bd88fe9c5a1bf500001b` | 9 | 9 | 1,902 | 25,314 | 13.309 | Outside window |
+
+All five experiments exceed the project-defined review threshold. The experiment `5348bd88fe9c5a1bf500001b` has the largest observed imbalance, with a maximum-to-minimum impression ratio of approximately 13.31.
+
+#### Interpretation and Limitations
+
+- These flags identify experiments requiring further review; they do not establish that random assignment failed.
+- The impression-ratio threshold of 1.5 is a project-defined screening rule, not a statistical significance threshold.
+- The randomization-risk window is a separate screening dimension. Its dates and rationale should be verified against the source documentation before being interpreted as an established historical risk period.
+- Unequal impressions may affect the precision and comparability of CTR estimates. The available fields alone do not establish why the differences occurred.
+- The flagged experiments should remain identified for subsequent eligibility decisions. Do not silently delete them or interpret the flags as proof of bias.
+
+#### Decision
+
+Retain all five flags in the analytical dataset. Before inferential analysis, document the inclusion and exclusion rules and investigate the experimental design and the origin of the impression counts. Treat the screening results as diagnostic evidence rather than proof of randomization failure.
