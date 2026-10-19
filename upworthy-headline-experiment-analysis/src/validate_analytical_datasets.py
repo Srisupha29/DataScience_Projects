@@ -175,7 +175,6 @@ def main():
         )
 
         # 7. Editorial metadata IDs must match package source-row IDs.
-                # 7. Editorial metadata IDs must match package source-row IDs.
         result = con.execute("""
             WITH package_ids AS (
                 SELECT row_id FROM packages

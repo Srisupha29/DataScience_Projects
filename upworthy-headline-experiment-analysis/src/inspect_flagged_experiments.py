@@ -12,7 +12,6 @@ FLAGGED_EXPERIMENTS = [
     "51d1e3934a5d3ff28b0001b0",
 ]
 
-
 def main():
     if not PACKAGES_FILE.exists():
         raise FileNotFoundError(

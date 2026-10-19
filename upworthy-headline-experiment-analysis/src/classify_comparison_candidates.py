@@ -1,4 +1,3 @@
-
 from utils import (
     EXPERIMENT_SUMMARY_FILE,
     COMPARISON_CANDIDATES_FILE,
