@@ -413,3 +413,55 @@ All five experiments exceed the project-defined review threshold. The experiment
 #### Decision
 
 Retain all five flags in the analytical dataset. Before inferential analysis, document the inclusion and exclusion rules and investigate the experimental design and the origin of the impression counts. Treat the screening results as diagnostic evidence rather than proof of randomization failure.
+
+### Missing-Image Audit and Eligibility Decision
+
+**Findings**
+
+Five experiments have zero distinct recorded image IDs, covering 22 packages. All packages in these experiments have missing image IDs.
+
+- Three experiments have multiple normalized headlines: `530527c3fe1bdf6bd0000003`, `5310bcc6dc7ca705b7000048`, and `53270be28d6f209195000022`.
+- Two experiments have one normalized headline: `52faa100aab77d1c21000005` and `52fb18b70a9b91080a000019`.
+
+**Decision**
+
+Retain all five experiments in the audit. Do not classify them as confirmed headline-only or image-only comparisons because image consistency cannot be established from the recorded image IDs. Distinguish missing metadata from an observed absence of variation.
+
+**Status:** Missing-image audit complete; final eligibility rules and experiment-level eligibility output pending.
+
+### Unit of Analysis and Repeated Package Rows
+
+**Source-row unit:** Each of the 22,666 rows is a distinct source record identified by the unique `row_id` derived from `column00`.
+
+**Package/stimulus unit:** `package_id` is a constructed identity based on experiment ID, normalized headline, and image ID. The dataset contains 19,171 distinct stimulus identities, with 1,148 repeated identity groups.
+
+**Experiment unit:** `clickability_test_id` identifies the experiment containing the packages.
+
+**Finding:** Every repeated stimulus identity has multiple distinct timestamps. Repeated identities have differing impression counts, click counts, or both. The source-recording semantics have not been established.
+
+**Decision:** Preserve all source rows. Do not deduplicate repeated package identities or aggregate their metrics until it is established whether repeated rows represent cumulative snapshots, incremental observations, or another recording structure. Retain `created_at` for subsequent investigation.
+
+**Limitation:** A repeated stimulus identity does not establish independent experimental assignment, and the current evidence does not establish whether summing repeated metrics would double-count exposure or engagement.
+
+**Status:** Unit identifiers documented; aggregation decision deferred pending clarification of repeated-row semantics.
+
+### Repeated Metric Progression Audit — Final Decision
+
+**Diagnostic findings**
+
+The repeated-metric progression audit examined 198 repeated stimulus identities. All 198 have multiple creation timestamps, multiple update timestamps, and changing impression counts. Click counts change in 197 of the 198 identities.
+
+The example records include non-monotonic impression and click counts. Metrics therefore do not consistently increase with the recorded timestamps.
+
+**Unit-of-analysis decision**
+
+- Preserve each source row as a distinct observation in the raw and prepared source-level data.
+- Use `row_id` to identify source records, `package_id` to identify constructed stimulus identities, and `clickability_test_id` to identify experiments.
+- Do not deduplicate repeated stimulus identities.
+- Do not sum repeated impression or click counts or select a single row as representative without establishing the source-recording semantics.
+
+**Limitation**
+
+The available diagnostic does not establish whether repeated rows represent snapshots, corrections, or another recording process. The dataset evidence alone is insufficient to justify aggregation to one row per experiment and package. This remains an explicit limitation for subsequent analysis.
+
+**Status:** Unit of analysis documented. Aggregation is deferred because the recording semantics remain unresolved. Any later metric analysis must preserve this limitation and avoid treating repeated rows as independent observations without justification.

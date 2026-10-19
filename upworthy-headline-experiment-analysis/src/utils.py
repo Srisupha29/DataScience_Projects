@@ -19,21 +19,13 @@ RAW_FILE = (
 EXPECTED_PACKAGE_ROWS = 22666
 EXPECTED_EXPERIMENTS = 4873
 
-# Randomization-risk review window.
-# Source: Upworthy Research Archive documentation.
-# The project uses this documented period as a screening window, not as proof that an experiment was randomized.
-# Project-defined screening window. Official source documentation
-# has not yet been verified to establish these dates as an official
-# randomization-risk period.
+# Project-defined screening window; source documentation has not yet
+# been verified to establish this as an official randomization-risk period.
 RANDOMIZATION_RISK_START = "2013-06-25"
 RANDOMIZATION_RISK_END = "2014-01-10"
 
-# Flag experiments when maximum row-level impressions are at
-# least 1.5 times minimum row-level impressions.
-# This is a project-defined screening threshold, not a formal
-# statistical test of randomization or exposure balance.
-# Project-defined diagnostic threshold, not a statistical
-# significance cutoff. Ratios above this value are flagged for review.
+# Project-defined diagnostic threshold, not a statistical significance
+# cutoff. Ratios above this value are flagged for manual review.
 IMPRESSION_IMBALANCE_THRESHOLD = 1.5
 
 # Processed datasets

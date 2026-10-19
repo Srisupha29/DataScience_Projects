@@ -63,6 +63,7 @@ The pooled figure is descriptive and does not measure the effect of a particular
 5. Do not automatically replace missing text with empty strings or remove rows without a documented rationale.
 6. Associations between headline features and CTR across unrelated experiments are not automatically causal.
 7. Keep confirmatory and holdout data untouched until the analysis plan is preregistered.
+8. Missing image identifiers and fingerprint collisions: The `package_id` fingerprint uses a placeholder when the image ID is missing. Consequently, records with the same experiment ID and normalized headline but different unknown images may receive the same fingerprint. The five experiments containing missing image IDs require caution when classifying image variation or counting distinct stimulus identities. A shared fingerprint in these cases does not establish that the visual content was identical.
 
 ## Documentation source
 
@@ -84,12 +85,3 @@ Five experiments exceeded the project-defined maximum-to-minimum impression rati
 These are screening flags, not proof of failed randomization or statistical significance. The threshold is project-defined. The randomization-risk date window is a separate screening dimension and should not be interpreted as verified historical evidence without supporting documentation.
 
 The flagged experiments remain available for subsequent eligibility decisions; they are not automatically excluded from all descriptive analysis.
-\n### Missing image identifiers and fingerprint collisions
-
-The `package_id` fingerprint uses a placeholder when the image ID is
-missing. Records with the same experiment ID and normalized headline
-but different unknown images may therefore receive the same fingerprint.
-The five experiments containing missing image IDs require caution when
-classifying image variation or counting distinct stimulus identities.
-A shared fingerprint in these cases does not establish that the visual
-content was identical.\n
