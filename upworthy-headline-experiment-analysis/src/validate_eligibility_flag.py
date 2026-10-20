@@ -1,4 +1,3 @@
-
 import duckdb
 
 FILE = "data/processed/comparison_candidates.parquet"

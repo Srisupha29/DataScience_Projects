@@ -50,7 +50,14 @@ def main():
                          AND distinct_image_ids > 1
                         THEN 'Mixed headline and image variation'
                     ELSE 'No recorded headline or image variation'
-                END AS comparison_category
+                                END AS comparison_category,
+
+                (
+                    distinct_headlines > 1
+                    AND distinct_image_ids = 1
+                    AND missing_image_id_packages = 0
+                ) AS primary_headline_structural_eligible
+
             FROM experiment_summary
         """)
 
