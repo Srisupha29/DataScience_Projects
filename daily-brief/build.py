@@ -338,7 +338,7 @@ def build(args):
         if os.environ.get("ANTHROPIC_API_KEY"):
             import anthropic
 
-            client = anthropic.Anthropic()
+            client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"].strip())
         else:
             warn("ANTHROPIC_API_KEY is not set, so summaries are skipped.")
 
