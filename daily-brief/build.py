@@ -12,6 +12,7 @@ import datetime as dt
 import html
 import json
 import os
+import random
 import re
 import sys
 from pathlib import Path
@@ -163,6 +164,28 @@ def parse_json(text):
     return json.loads(text[start : end + 1])
 
 
+def describe(exc):
+    """Readable error including the underlying cause, e.g.
+    'APIConnectionError: Connection error. <- ConnectError: ...'"""
+    parts, seen, e = [], set(), exc
+    while e is not None and id(e) not in seen and len(parts) < 4:
+        seen.add(id(e))
+        parts.append(f"{type(e).__name__}: {e}")
+        e = e.__cause__ or e.__context__
+    return " <- ".join(parts)
+
+
+def check_api(client, model):
+    """One tiny request up front. Returns None if Claude is reachable, else a readable reason."""
+    try:
+        client.messages.create(
+            model=model, max_tokens=64, messages=[{"role": "user", "content": "Reply with OK."}]
+        )
+        return None
+    except Exception as exc:
+        return describe(exc)
+
+
 def ask(client, model, prompt, max_tokens):
     last_error = None
     for attempt in range(2):
@@ -173,12 +196,14 @@ def ask(client, model, prompt, max_tokens):
                 system=SYSTEM,
                 messages=[{"role": "user", "content": prompt}],
             )
+            if getattr(resp, "stop_reason", None) == "max_tokens":
+                raise ValueError("reply was cut off (max_tokens reached)")
             text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
             return parse_json(text)
         except Exception as exc:
             last_error = exc
-            log(f"  ! attempt {attempt + 1} failed: {exc}")
-    raise RuntimeError(last_error)
+            log(f"  ! attempt {attempt + 1} failed: {describe(exc)}")
+    raise RuntimeError(describe(last_error))
 
 
 def resolve_links(ids, items, limit=3):
@@ -213,17 +238,17 @@ def raw_stories(items, n=8):
     ]
 
 
-def summarise_world(client, model, items):
+def summarise_world(client, model, items, focus="the world"):
     prompt = f"""{items_block(items)}
 
-Choose the 6 most important distinct stories (merge items about the same event). Return JSON:
+Choose the 6 most important distinct stories about {focus} (merge items about the same event). Return JSON:
 {{"top_line": "one sentence on the day's biggest theme",
  "stories": [{{"headline": "plain headline, max 12 words",
    "what_happened": "2 sentences",
    "story_behind": "2-3 sentences of background: how this came about, who is involved, what is at stake",
    "why_it_matters": "1 sentence",
    "sources": [item numbers used]}}]}}"""
-    raw = ask(client, model, prompt, 5000)
+    raw = ask(client, model, prompt, 9000)
     return {
         "top_line": str(raw.get("top_line", "")).strip(),
         "stories": shape_stories(
@@ -241,7 +266,7 @@ Choose the 6 most significant AI stories (merge duplicates; prefer substance ove
    "summary": "2-3 sentences",
    "why_it_matters": "1 sentence",
    "sources": [item numbers used]}}]}}"""
-    raw = ask(client, model, prompt, 4000)
+    raw = ask(client, model, prompt, 7000)
     return {
         "top_line": str(raw.get("top_line", "")).strip(),
         "stories": shape_stories(raw, items, "stories", ["headline", "summary", "why_it_matters"]),
@@ -257,7 +282,7 @@ Choose the 6 most useful articles for someone learning data science and machine 
    "summary": "2 sentences on what it covers",
    "takeaway": "1 sentence: the one thing worth remembering",
    "sources": [the single item number]}}]}}"""
-    raw = ask(client, model, prompt, 4000)
+    raw = ask(client, model, prompt, 7000)
     return {"top_line": "", "stories": shape_stories(raw, items, "stories", ["headline", "tag", "summary", "takeaway"])}
 
 
@@ -275,7 +300,7 @@ Return JSON:
  "stories": [{{"headline": "plain headline", "summary": "2 sentences", "sources": [item numbers]}}]}}
 Give comments for the 6 biggest movers, 3 'watch' entries (these are topics to research, never
 buy or sell recommendations), and 4 stories."""
-    raw = ask(client, model, prompt, 4000)
+    raw = ask(client, model, prompt, 7000)
     movers = {}
     for m in raw.get("movers", []) if isinstance(raw.get("movers"), list) else []:
         if isinstance(m, dict) and m.get("symbol"):
@@ -301,7 +326,7 @@ Return JSON:
  "body": "120-160 words, no jargon without explanation",
  "example": "a short worked example with simple made-up numbers, labelled as an illustration",
  "look_for": ["3 short things to check when reading a real document"]}}"""
-    raw = ask(client, model, prompt, 2500)
+    raw = ask(client, model, prompt, 5000)
     look_for = raw.get("look_for")
     return {
         "title": str(raw.get("title", topic)),
@@ -309,6 +334,44 @@ Return JSON:
         "example": str(raw.get("example", "")).strip(),
         "look_for": [str(x) for x in look_for][:4] if isinstance(look_for, list) else [],
     }
+
+
+def write_card(client, model, topic):
+    """Daily learning card: a short explanation plus one multiple-choice question."""
+    prompt = f"""Write a daily learning card on this data science / machine learning topic: "{topic}".
+Return JSON:
+{{"title": "{topic}",
+ "concept": "90-120 words in plain English; explain any jargon",
+ "analogy": "one sentence everyday analogy",
+ "remember": "one sentence to remember",
+ "quiz": {{"question": "a multiple-choice question that tests understanding, not trivia",
+   "options": ["four plausible options, exactly one correct"],
+   "answer": 0,
+   "explanation": "2 sentences on why the correct option is right"}}}}
+"answer" is the index (0-3) of the correct option."""
+    raw = ask(client, model, prompt, 6000)
+    card = {
+        "title": str(raw.get("title", topic)).strip() or topic,
+        "concept": str(raw.get("concept", "")).strip(),
+        "analogy": str(raw.get("analogy", "")).strip(),
+        "remember": str(raw.get("remember", "")).strip(),
+        "quiz": None,
+    }
+    q = raw.get("quiz")
+    if isinstance(q, dict) and isinstance(q.get("options"), list):
+        options = [str(o).strip() for o in q["options"] if str(o).strip()][:6]
+        ans = q.get("answer")
+        if len(options) >= 2 and isinstance(ans, int) and not isinstance(ans, bool) and 0 <= ans < len(options):
+            # Models like to put the right answer in the same slot, so shuffle (same order all day).
+            order = list(range(len(options)))
+            random.Random(dt.datetime.now(TZ).date().toordinal()).shuffle(order)
+            card["quiz"] = {
+                "question": str(q.get("question", "")).strip(),
+                "options": [options[i] for i in order],
+                "answer": order.index(ans),
+                "explanation": str(q.get("explanation", "")).strip(),
+            }
+    return card
 
 
 # ------------------------------------------------------------- sample ----
@@ -326,6 +389,21 @@ def sample_items(section):
     ]
 
 
+def sample_card():
+    return {
+        "title": "Sample learning card",
+        "concept": "Placeholder explanation used only to preview the layout of the daily learning card.",
+        "analogy": "Placeholder analogy sentence.",
+        "remember": "Placeholder one-line takeaway.",
+        "quiz": {
+            "question": "Placeholder question: which option is correct?",
+            "options": ["First option", "Second option (correct)", "Third option", "Fourth option"],
+            "answer": 1,
+            "explanation": "Placeholder explanation of why the second option is right.",
+        },
+    }
+
+
 def sample_quotes(symbols):
     return {s: {"price": 100.0 + n * 7.3, "pct": ((n * 37) % 11) - 5.0, "date": "sample"} for n, s in enumerate(symbols)}
 
@@ -338,7 +416,14 @@ def build(args):
         if os.environ.get("ANTHROPIC_API_KEY"):
             import anthropic
 
-            client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"].strip())
+            key = os.environ["ANTHROPIC_API_KEY"].strip()
+            log(f"API key check: length={len(key)}, plain_ascii={key.isascii()}, starts_with_sk-ant={key.startswith('sk-ant-')}")
+            client = anthropic.Anthropic(api_key=key)
+            log(f"anthropic SDK {anthropic.__version__}, model {model}")
+            problem = check_api(client, model)
+            if problem:
+                warn(f"Could not use Claude, so summaries are skipped. Details: {problem}")
+                client = None
         else:
             warn("ANTHROPIC_API_KEY is not set, so summaries are skipped.")
 
@@ -361,6 +446,14 @@ def build(args):
         "world", lambda: summarise_world(client, model, items["world"]),
         {"top_line": "", "stories": raw_stories(items["world"])},
     )
+    sections["thailand"], ai_ok["thailand"] = run(
+        "Thailand",
+        lambda: summarise_world(
+            client, model, items["thailand"],
+            focus="Thailand (the reader lives in Bangkok, so give Thai context in the background)",
+        ),
+        {"top_line": "", "stories": raw_stories(items["thailand"])},
+    )
     sections["ai"], ai_ok["ai"] = run(
         "AI", lambda: summarise_ai(client, model, items["ai"]),
         {"top_line": "", "stories": raw_stories(items["ai"])},
@@ -368,6 +461,12 @@ def build(args):
     sections["reading"], ai_ok["reading"] = run(
         "reading", lambda: summarise_reading(client, model, items["reading"]),
         {"top_line": "", "stories": raw_stories(items["reading"])},
+    )
+    ml_topic = config.LEARNING_TOPICS[dt.datetime.now(TZ).date().toordinal() % len(config.LEARNING_TOPICS)]
+    sections["reading"]["card"], _ = run(
+        "the learning card", lambda: write_card(client, model, ml_topic),
+        sample_card() if args.sample else
+        {"title": ml_topic, "concept": "", "analogy": "", "remember": "", "quiz": None},
     )
 
     # Markets: prices first, then the model's commentary on them.
@@ -403,6 +502,7 @@ def build(args):
     return {
         "date_label": now.strftime("%A, %d %B %Y"),
         "generated_at": now.strftime("%H:%M"),
+        "generated_iso": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "summaries": ai_ok,
         "warnings": WARNINGS,
         "sections": sections,
