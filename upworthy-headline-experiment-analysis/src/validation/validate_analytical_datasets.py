@@ -1,5 +1,5 @@
 
-from utils import (
+from utils.utils import (
     PACKAGES_FILE,
     EDITORIAL_FILE,
     EXPERIMENT_SUMMARY_FILE,
