@@ -357,21 +357,134 @@ Return JSON:
         "remember": str(raw.get("remember", "")).strip(),
         "quiz": None,
     }
-    q = raw.get("quiz")
-    if isinstance(q, dict) and isinstance(q.get("options"), list):
-        options = [str(o).strip() for o in q["options"] if str(o).strip()][:6]
-        ans = q.get("answer")
-        if len(options) >= 2 and isinstance(ans, int) and not isinstance(ans, bool) and 0 <= ans < len(options):
-            # Models like to put the right answer in the same slot, so shuffle (same order all day).
-            order = list(range(len(options)))
-            random.Random(dt.datetime.now(TZ).date().toordinal()).shuffle(order)
-            card["quiz"] = {
-                "question": str(q.get("question", "")).strip(),
-                "options": [options[i] for i in order],
-                "answer": order.index(ans),
-                "explanation": str(q.get("explanation", "")).strip(),
-            }
+    card["quiz"] = shape_quiz(raw.get("quiz"))
     return card
+
+
+def shape_quiz(q, salt=0):
+    """Check a model-written multiple-choice question and shuffle its options.
+
+    Models like to put the right answer in the same slot, so we shuffle (the same
+    order all day). Returns None if the question is malformed."""
+    if not (isinstance(q, dict) and isinstance(q.get("options"), list)):
+        return None
+    options = [str(o).strip() for o in q["options"]][:6]
+    ans = q.get("answer")
+    if len(options) < 2 or not all(options):
+        return None
+    if not isinstance(ans, int) or isinstance(ans, bool) or not 0 <= ans < len(options):
+        return None
+    order = list(range(len(options)))
+    random.Random(dt.datetime.now(TZ).date().toordinal() + salt).shuffle(order)
+    return {
+        "question": str(q.get("question", "")).strip(),
+        "options": [options[i] for i in order],
+        "answer": order.index(ans),
+        "explanation": str(q.get("explanation", "")).strip(),
+    }
+
+
+def book_shelf():
+    keys = ("category", "title", "author", "blurb")
+    return [dict(zip(keys, b)) for b in config.BOOKS]
+
+
+def book_of_the_day(shelf):
+    """Categories take turns, so the featured book changes subject every day."""
+    by_cat = {}
+    for b in shelf:
+        by_cat.setdefault(b["category"], []).append(b)
+    order = []
+    while any(by_cat.values()):
+        for cat in list(by_cat):
+            if by_cat[cat]:
+                order.append(by_cat[cat].pop(0))
+    return order[dt.datetime.now(TZ).date().toordinal() % len(order)]
+
+
+def write_book(client, model, book):
+    prompt = f"""Write a short reading-list entry for the non-fiction book "{book['title']}" by {book['author']}.
+Paraphrase in your own words and never quote the book. If you are unsure about a detail, leave it out.
+Return JSON:
+{{"summary": "80-100 words on the book's central argument",
+ "key_ideas": ["three key ideas, one sentence each"],
+ "try_today": "one small, concrete action inspired by the book",
+ "best_for": "one sentence on who will get the most from it",
+ "worth_knowing": "one honest sentence: a common criticism or a limit of the book's claims"}}"""
+    raw = ask(client, model, prompt, 5000)
+    ideas = raw.get("key_ideas")
+    return {
+        "summary": str(raw.get("summary", "")).strip(),
+        "key_ideas": [str(x).strip() for x in ideas][:4] if isinstance(ideas, list) else [],
+        "try_today": str(raw.get("try_today", "")).strip(),
+        "best_for": str(raw.get("best_for", "")).strip(),
+        "worth_knowing": str(raw.get("worth_knowing", "")).strip(),
+    }
+
+
+def write_spanish(client, model, level, theme):
+    """Daily Spanish reading: passage with translation, vocabulary, a grammar point and a quiz."""
+    prompt = f"""Write a Spanish reading practice for an English-speaking learner at CEFR level {level}.
+Theme: {theme}.
+Rules: natural, correct Spanish (neutral, widely understood; note a regional word only if it matters);
+130 to 170 words in 2 or 3 short paragraphs; vocabulary and grammar suited to {level}; original text.
+Return JSON:
+{{"title_es": "title in Spanish", "title_en": "title in English",
+ "paragraphs": [{{"es": "paragraph in Spanish", "en": "faithful, natural English translation of that paragraph"}}],
+ "vocab": [{{"es": "a word or phrase exactly as it appears in the passage",
+   "en": "its English meaning in this context",
+   "example_es": "a new short example sentence",
+   "example_en": "its English translation"}}],
+ "grammar": {{"point": "a grammar point used in the passage",
+   "explanation": "2 or 3 sentences in English",
+   "examples": [{{"es": "a sentence from the passage", "en": "translation"}}]}},
+ "questions": [{{"question": "a comprehension question in Spanish",
+   "options": ["four short options in Spanish, exactly one correct"],
+   "answer": 0,
+   "explanation": "one sentence in English"}}],
+ "try_it": "one short writing task in English asking for three sentences using today's words"}}
+Give 8 vocab items, 2 grammar examples and 3 questions. "answer" is the index (0-3) of the correct option."""
+    raw = ask(client, model, prompt, 10000)
+
+    paragraphs = []
+    for p in raw.get("paragraphs") if isinstance(raw.get("paragraphs"), list) else []:
+        if isinstance(p, dict) and str(p.get("es", "")).strip():
+            paragraphs.append({"es": str(p["es"]).strip(), "en": str(p.get("en", "")).strip()})
+    if not paragraphs:
+        raise ValueError("the reply had no Spanish passage")
+
+    vocab = []
+    for v in raw.get("vocab") if isinstance(raw.get("vocab"), list) else []:
+        if isinstance(v, dict) and str(v.get("es", "")).strip() and str(v.get("en", "")).strip():
+            vocab.append({k: str(v.get(k, "")).strip() for k in ("es", "en", "example_es", "example_en")})
+
+    g = raw.get("grammar") if isinstance(raw.get("grammar"), dict) else {}
+    examples = [
+        {"es": str(x.get("es", "")).strip(), "en": str(x.get("en", "")).strip()}
+        for x in (g.get("examples") if isinstance(g.get("examples"), list) else [])
+        if isinstance(x, dict) and str(x.get("es", "")).strip()
+    ]
+    grammar = None
+    if str(g.get("point", "")).strip():
+        grammar = {"point": str(g["point"]).strip(), "explanation": str(g.get("explanation", "")).strip(), "examples": examples[:3]}
+
+    questions = []
+    for i, q in enumerate(raw.get("questions") if isinstance(raw.get("questions"), list) else []):
+        shaped = shape_quiz(q, salt=i)
+        if shaped:
+            questions.append(shaped)
+
+    return {
+        "level": level,
+        "theme": theme,
+        "title_es": str(raw.get("title_es", "")).strip(),
+        "title_en": str(raw.get("title_en", "")).strip(),
+        "paragraphs": paragraphs,
+        "vocab": vocab[:10],
+        "grammar": grammar,
+        "questions": questions[:4],
+        "try_it": str(raw.get("try_it", "")).strip(),
+    }
 
 
 # ------------------------------------------------------------- sample ----
@@ -401,6 +514,44 @@ def sample_card():
             "answer": 1,
             "explanation": "Placeholder explanation of why the second option is right.",
         },
+    }
+
+
+def sample_book():
+    return {
+        "summary": "Placeholder summary used only to preview the layout of the book of the day.",
+        "key_ideas": ["Placeholder idea one.", "Placeholder idea two.", "Placeholder idea three."],
+        "try_today": "Placeholder small action to try today.",
+        "best_for": "Placeholder description of who will enjoy it.",
+        "worth_knowing": "Placeholder honest note about the book's limits.",
+    }
+
+
+def sample_spanish():
+    return {
+        "level": config.SPANISH_LEVEL,
+        "theme": "Sample theme",
+        "title_es": "Un texto de ejemplo",
+        "title_en": "A sample text",
+        "paragraphs": [
+            {"es": "Esta mañana fui a un café pequeño cerca de mi casa. Pedí un café con leche y una tostada.",
+             "en": "This morning I went to a small café near my house. I ordered a coffee with milk and a piece of toast."},
+            {"es": "Mientras desayunaba, leí las noticias en el móvil. Después caminé hasta la universidad.",
+             "en": "While I was having breakfast, I read the news on my phone. Then I walked to the university."},
+        ],
+        "vocab": [
+            {"es": "pequeño", "en": "small", "example_es": "Vivo en un pueblo pequeño.", "example_en": "I live in a small town."},
+            {"es": "desayunaba", "en": "I was having breakfast", "example_es": "Siempre desayunaba temprano.", "example_en": "I always had breakfast early."},
+            {"es": "caminé", "en": "I walked", "example_es": "Caminé una hora.", "example_en": "I walked for an hour."},
+        ],
+        "grammar": {"point": "Pretérito indefinido and imperfecto",
+                    "explanation": "Placeholder explanation of when to use each past tense.",
+                    "examples": [{"es": "Mientras desayunaba, leí las noticias.", "en": "While I was having breakfast, I read the news."}]},
+        "questions": [
+            {"question": "¿Qué pidió en el café?", "options": ["Té", "Café con leche", "Jugo", "Agua"], "answer": 1, "explanation": "The text says it ordered a coffee with milk."},
+            {"question": "¿Adónde caminó después?", "options": ["Al trabajo", "Al parque", "A la universidad", "A casa"], "answer": 2, "explanation": "It walked to the university."},
+        ],
+        "try_it": "Write three sentences about your morning using today's words.",
     }
 
 
@@ -467,6 +618,22 @@ def build(args):
         "the learning card", lambda: write_card(client, model, ml_topic),
         sample_card() if args.sample else
         {"title": ml_topic, "concept": "", "analogy": "", "remember": "", "quiz": None},
+    )
+
+    # Books: today's pick comes from the shelf in config.py; Claude writes the summary.
+    shelf = book_shelf()
+    pick = book_of_the_day(shelf)
+    book_extra, ai_ok["books"] = run(
+        "the book of the day", lambda: write_book(client, model, pick), sample_book() if args.sample else {}
+    )
+    sections["books"] = {"top_line": "", "today": {**pick, **book_extra}, "shelf": shelf}
+
+    # Spanish: one reading a day, rotating through the themes in config.py.
+    level = config.SPANISH_LEVEL
+    theme = config.SPANISH_THEMES[dt.datetime.now(TZ).date().toordinal() % len(config.SPANISH_THEMES)]
+    sections["spanish"], ai_ok["spanish"] = run(
+        "the Spanish reading", lambda: write_spanish(client, model, level, theme),
+        sample_spanish() if args.sample else {"level": level, "theme": theme, "paragraphs": []},
     )
 
     # Markets: prices first, then the model's commentary on them.

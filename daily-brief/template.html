@@ -23,6 +23,8 @@
   --ai:#6A3DF0;       --ai-on:#fff;       --ai-ac:#6A3DF0;       --ai-soft:#ECE6FE;
   --markets:#F2A900;  --markets-on:#1B1B2F; --markets-ac:#8A5A00; --markets-soft:#FCEFC8;
   --reading:#0B7A7A;  --reading-on:#fff;  --reading-ac:#0B7A7A;  --reading-soft:#D9F1F0;
+  --books:#B5179E;    --books-on:#fff;    --books-ac:#B5179E;    --books-soft:#F8E4F4;
+  --spanish:#16793A;  --spanish-on:#fff;  --spanish-ac:#16793A;  --spanish-soft:#DDF3E4;
 }
 @media (prefers-color-scheme:dark){
   :root{
@@ -34,6 +36,8 @@
     --ai-ac:#B9A0FF;       --ai-soft:#281F55;
     --markets-ac:#F5C650;  --markets-soft:#382E0C;
     --reading-ac:#5ED3D0;  --reading-soft:#0D3838;
+    --books-ac:#F08AD8;    --books-soft:#3A1735;
+    --spanish-ac:#6FD39A;  --spanish-soft:#12351F;
   }
 }
 [data-c=world]{--c:var(--world);--on:var(--world-on);--ac:var(--world-ac);--soft:var(--world-soft)}
@@ -41,6 +45,8 @@
 [data-c=ai]{--c:var(--ai);--on:var(--ai-on);--ac:var(--ai-ac);--soft:var(--ai-soft)}
 [data-c=markets]{--c:var(--markets);--on:var(--markets-on);--ac:var(--markets-ac);--soft:var(--markets-soft)}
 [data-c=reading]{--c:var(--reading);--on:var(--reading-on);--ac:var(--reading-ac);--soft:var(--reading-soft)}
+[data-c=books]{--c:var(--books);--on:var(--books-on);--ac:var(--books-ac);--soft:var(--books-soft)}
+[data-c=spanish]{--c:var(--spanish);--on:var(--spanish-on);--ac:var(--spanish-ac);--soft:var(--spanish-soft)}
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -146,6 +152,52 @@ h3.group{font:800 1.5rem/1.2 var(--display);letter-spacing:-.02em;margin:3rem 0 
 .opt.bad{border-color:var(--loss);background:var(--loss-bg);color:var(--loss)}
 .fb{margin:1rem 0 0;min-height:1.5em}
 
+/* ---------- books ---------- */
+.pick{background:var(--soft);padding:1.7rem 1.6rem;margin:0 0 .5rem;border-top:6px solid var(--c)}
+.pick .cat{display:inline-block;font:600 .8rem/1 var(--display);background:var(--bg);color:var(--ac);padding:.38rem .7rem;border-radius:99px;margin-bottom:.8rem}
+.pick h3{font:800 1.9rem/1.1 var(--display);letter-spacing:-.025em;margin:0 0 .3rem}
+.pick .by{font:500 1rem var(--display);color:var(--muted);margin:0 0 1rem}
+.pick h4{font:800 1rem var(--display);margin:1.4rem 0 .4rem;color:var(--ac)}
+.pick ul{margin:.3rem 0 0;padding-left:1.2rem}
+.pick li{margin:.3rem 0}
+.pick p{margin:.5rem 0}
+.chips{display:flex;flex-wrap:wrap;gap:.5rem;margin:0 0 1.2rem}
+.chip{font:600 .9rem/1 var(--display);padding:.55rem .9rem;border:2px solid var(--c);background:transparent;color:var(--ink);border-radius:99px;cursor:pointer}
+.chip[aria-pressed=true]{background:var(--c);color:var(--on)}
+.shelf{list-style:none;margin:0;padding:0}
+.book{padding:.9rem 0;border-top:1px solid var(--rule)}
+.book b{font:700 1.05rem/1.3 var(--display)}
+.book .au{font:500 .9rem var(--display);color:var(--muted)}
+.book p{margin:.25rem 0 0}
+.book.today{background:var(--soft);padding-left:.9rem;padding-right:.9rem;border-left:4px solid var(--c)}
+.book .tg{font:700 .75rem var(--display);color:var(--ac);margin-left:.6rem}
+
+/* ---------- Spanish ---------- */
+.rhead{display:flex;flex-wrap:wrap;align-items:baseline;gap:.4rem 1rem;margin:0 0 .3rem}
+.rhead h3{font:800 2rem/1.1 var(--display);letter-spacing:-.025em;margin:0}
+.lvl{font:700 .8rem/1 var(--display);background:var(--c);color:var(--on);padding:.35rem .6rem;border-radius:.3rem}
+.sub{font:500 1rem var(--display);color:var(--muted);margin:0 0 1.2rem}
+.tools{display:flex;flex-wrap:wrap;gap:.5rem;margin:0 0 1rem}
+.btn{font:600 .9rem/1 var(--display);padding:.7rem .95rem;border:2px solid var(--c);background:transparent;color:var(--ink);border-radius:.4rem;cursor:pointer}
+.btn:hover,.btn[aria-pressed=true]{background:var(--c);color:var(--on)}
+.passage p.es{font:400 1.2rem/1.8 var(--text);margin:1rem 0 .3rem;max-width:40rem}
+.passage p.en{font:400 1rem/1.6 var(--text);color:var(--muted);margin:0 0 1rem;padding-left:1rem;border-left:4px solid var(--c);max-width:40rem}
+mark{background:var(--soft);color:inherit;border-bottom:2px solid var(--c);padding:0 .12em}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:.7rem}
+.vcard{background:var(--soft);padding:.8rem .9rem}
+.vtop{display:flex;justify-content:space-between;gap:.5rem;align-items:center}
+.vword{font:800 1.1rem/1.3 var(--display);background:none;border:0;padding:0;color:var(--ink);cursor:pointer;text-align:left}
+.say{font:600 .8rem var(--display);border:1px solid var(--c);background:var(--bg);color:var(--ink);border-radius:.3rem;padding:.3rem .5rem;cursor:pointer}
+.vback{margin-top:.5rem;font:400 .95rem/1.5 var(--text)}
+.vback b{font:700 1rem var(--display)}
+.vback p{margin:.3rem 0 0}
+.vback em{color:var(--muted)}
+.gram{background:var(--soft);padding:1.2rem 1.3rem;border-left:5px solid var(--c)}
+.gram .gp{font:800 1.15rem var(--display);margin:0 0 .4rem}
+.gram p{margin:.4rem 0}
+.gram .ex{font-style:italic}
+.qs .quiz{margin:0 0 1.8rem}
+
 footer{padding:0 2.5rem 3.5rem;max-width:49rem;font:500 .85rem/1.5 var(--display);color:var(--muted)}
 
 /* ---------- phones ---------- */
@@ -194,7 +246,9 @@ footer{padding:0 2.5rem 3.5rem;max-width:49rem;font:500 .85rem/1.5 var(--display
     {id: 'thailand', nav: 'Thailand', title: 'Thailand', fallback: 'The day’s news from Thailand, with the background.'},
     {id: 'ai',       nav: 'AI',       title: 'AI',      fallback: 'The AI news that mattered today.'},
     {id: 'markets',  nav: 'Markets',  title: 'Markets', fallback: 'How markets moved, and what to read up on.'},
-    {id: 'reading',  nav: 'DS & ML',  title: 'Data science & ML', fallback: 'Today’s learning card and the articles worth your time.'}
+    {id: 'reading',  nav: 'DS & ML',  title: 'Data science & ML', fallback: 'Today’s learning card and the articles worth your time.'},
+    {id: 'books',    nav: 'Books',    title: 'Books',   fallback: 'One non-fiction book a day: what it argues and one idea to try.'},
+    {id: 'spanish',  nav: 'Español',  title: 'Español', fallback: 'One reading a day, with translation and vocabulary.'}
   ];
 
   // Decorative art. These strings are constants written here, never data from the feeds.
@@ -203,6 +257,8 @@ footer{padding:0 2.5rem 3.5rem;max-width:49rem;font:500 .85rem/1.5 var(--display
     thailand: '<svg viewBox="0 0 240 240"><g transform="rotate(-8 120 120)"><rect x="20" y="75" width="200" height="22" fill="#fff" fill-opacity=".92"/><rect x="20" y="97" width="200" height="46" fill="#1F2A68"/><rect x="20" y="143" width="200" height="22" fill="#fff" fill-opacity=".92"/></g></svg>',
     ai: '<svg viewBox="0 0 240 240"><path d="M40 60L120 40L200 80L160 120L80 140L40 60M120 40L160 120M80 140L120 210L160 120M200 80L200 180L120 210" fill="none" stroke="currentColor" stroke-width="3"/><g fill="currentColor"><circle cx="40" cy="60" r="13"/><circle cx="120" cy="40" r="13"/><circle cx="200" cy="80" r="13"/><circle cx="160" cy="120" r="13"/><circle cx="80" cy="140" r="13"/><circle cx="120" cy="210" r="13"/><circle cx="200" cy="180" r="13"/></g></svg>',
     markets: '<svg viewBox="0 0 240 240"><g fill="currentColor"><rect x="26" y="150" width="30" height="62"/><rect x="70" y="118" width="30" height="94"/><rect x="114" y="138" width="30" height="74"/><rect x="158" y="78" width="30" height="134"/><rect x="202" y="36" width="30" height="176"/></g><path d="M14 132L84 92L128 112L172 52L226 18" fill="none" stroke="currentColor" stroke-width="5"/></svg>',
+    books: '<svg viewBox="0 0 240 240" fill="currentColor"><rect x="30" y="60" width="34" height="150" rx="3"/><rect x="72" y="40" width="30" height="170" rx="3"/><rect x="110" y="80" width="40" height="130" rx="3"/><g transform="rotate(14 178 210)"><rect x="162" y="50" width="32" height="160" rx="3"/></g><rect x="14" y="210" width="212" height="10" rx="3"/></svg>',
+    spanish: '<svg viewBox="0 0 240 240"><path d="M30 40h180a14 14 0 0 1 14 14v100a14 14 0 0 1-14 14H110l-44 38v-38H30a14 14 0 0 1-14-14V54a14 14 0 0 1 14-14z" fill="none" stroke="currentColor" stroke-width="4"/><text x="120" y="140" font-size="96" font-weight="800" text-anchor="middle" fill="currentColor" font-family="Bricolage Grotesque, system-ui, sans-serif">¿?</text></svg>',
     reading: '<svg viewBox="0 0 240 240"><path d="M22 204L218 44" stroke="currentColor" stroke-width="4" fill="none"/><g fill="currentColor"><circle cx="46" cy="186" r="9"/><circle cx="74" cy="150" r="9"/><circle cx="62" cy="116" r="9"/><circle cx="104" cy="170" r="9"/><circle cx="124" cy="120" r="9"/><circle cx="150" cy="142" r="9"/><circle cx="120" cy="70" r="9"/><circle cx="176" cy="86" r="9"/><circle cx="196" cy="62" r="9"/><circle cx="170" cy="40" r="9"/></g></svg>'
   };
 
