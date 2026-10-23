@@ -13,3 +13,4 @@ data/processed/*
 
 *.duckdb
 *.duckdb.wal
+.venv-embeddings/
