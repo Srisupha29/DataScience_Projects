@@ -205,6 +205,11 @@ LEARNING_TOPICS = [
     "Model monitoring and drift in production",
 ]
 
+# The learning card, the book of the day and the Spanish reading are prepared for today AND
+# the next few days, and the page shows the one that matches the date on your device. That
+# way they still change every day even if GitHub skips a scheduled run. Costs a few cents more.
+LOOKAHEAD_DAYS = 3
+
 # ---------------------------------------------------------------- books ----
 # Non-fiction only. Each entry: (category, title, author, one-line description).
 # One book is featured per day (the categories take turns), and Claude writes a

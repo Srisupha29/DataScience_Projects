@@ -15,6 +15,7 @@ import os
 import random
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
@@ -336,7 +337,7 @@ Return JSON:
     }
 
 
-def write_card(client, model, topic):
+def write_card(client, model, topic, date=None):
     """Daily learning card: a short explanation plus one multiple-choice question."""
     prompt = f"""Write a daily learning card on this data science / machine learning topic: "{topic}".
 Return JSON:
@@ -357,11 +358,11 @@ Return JSON:
         "remember": str(raw.get("remember", "")).strip(),
         "quiz": None,
     }
-    card["quiz"] = shape_quiz(raw.get("quiz"))
+    card["quiz"] = shape_quiz(raw.get("quiz"), seed=(date or dt.datetime.now(TZ).date()).toordinal())
     return card
 
 
-def shape_quiz(q, salt=0):
+def shape_quiz(q, seed=0):
     """Check a model-written multiple-choice question and shuffle its options.
 
     Models like to put the right answer in the same slot, so we shuffle (the same
@@ -375,7 +376,7 @@ def shape_quiz(q, salt=0):
     if not isinstance(ans, int) or isinstance(ans, bool) or not 0 <= ans < len(options):
         return None
     order = list(range(len(options)))
-    random.Random(dt.datetime.now(TZ).date().toordinal() + salt).shuffle(order)
+    random.Random(seed).shuffle(order)
     return {
         "question": str(q.get("question", "")).strip(),
         "options": [options[i] for i in order],
@@ -389,17 +390,16 @@ def book_shelf():
     return [dict(zip(keys, b)) for b in config.BOOKS]
 
 
-def book_of_the_day(shelf):
-    """Categories take turns, so the featured book changes subject every day."""
-    by_cat = {}
-    for b in shelf:
-        by_cat.setdefault(b["category"], []).append(b)
-    order = []
-    while any(by_cat.values()):
-        for cat in list(by_cat):
-            if by_cat[cat]:
-                order.append(by_cat[cat].pop(0))
-    return order[dt.datetime.now(TZ).date().toordinal() % len(order)]
+def book_of_the_day(shelf, date=None):
+    """A random-looking book each day, from any category.
+
+    The shelf is shuffled once per cycle (seeded by the cycle number), so every book
+    appears once before any book repeats, and the order is the same all day."""
+    n = len(shelf)
+    day = (date or dt.datetime.now(TZ).date()).toordinal()
+    order = list(range(n))
+    random.Random(day // n).shuffle(order)
+    return shelf[order[day % n]]
 
 
 def write_book(client, model, book):
@@ -423,27 +423,18 @@ Return JSON:
 
 
 def write_spanish(client, model, level, theme):
-    """Daily Spanish reading: passage with translation, vocabulary, a grammar point and a quiz."""
-    prompt = f"""Write a Spanish reading practice for an English-speaking learner at CEFR level {level}.
+    """Daily Spanish reading: a fresh passage with its English translation and a vocabulary list."""
+    prompt = f"""Write a Spanish reading passage for an English-speaking learner at CEFR level {level}.
 Theme: {theme}.
-Rules: natural, correct Spanish (neutral, widely understood; note a regional word only if it matters);
-130 to 170 words in 2 or 3 short paragraphs; vocabulary and grammar suited to {level}; original text.
+Rules: natural, correct Spanish (neutral and widely understood; note a regional word only if it matters);
+140 to 190 words in 3 short paragraphs; vocabulary and grammar suited to {level}; original text.
 Return JSON:
 {{"title_es": "title in Spanish", "title_en": "title in English",
  "paragraphs": [{{"es": "paragraph in Spanish", "en": "faithful, natural English translation of that paragraph"}}],
- "vocab": [{{"es": "a word or phrase exactly as it appears in the passage",
-   "en": "its English meaning in this context",
-   "example_es": "a new short example sentence",
-   "example_en": "its English translation"}}],
- "grammar": {{"point": "a grammar point used in the passage",
-   "explanation": "2 or 3 sentences in English",
-   "examples": [{{"es": "a sentence from the passage", "en": "translation"}}]}},
- "questions": [{{"question": "a comprehension question in Spanish",
-   "options": ["four short options in Spanish, exactly one correct"],
-   "answer": 0,
-   "explanation": "one sentence in English"}}],
- "try_it": "one short writing task in English asking for three sentences using today's words"}}
-Give 8 vocab items, 2 grammar examples and 3 questions. "answer" is the index (0-3) of the correct option."""
+ "vocab": [{{"es": "a word or short phrase exactly as it appears in the passage",
+   "en": "its English meaning in this context; for a conjugated verb give the infinitive too, e.g. 'I walked (from caminar)'",
+   "kind": "part of speech, e.g. verb, noun (f), adjective, phrase"}}]}}
+Give 10 useful vocabulary items from the passage, skipping the very easiest words."""
     raw = ask(client, model, prompt, 10000)
 
     paragraphs = []
@@ -456,23 +447,7 @@ Give 8 vocab items, 2 grammar examples and 3 questions. "answer" is the index (0
     vocab = []
     for v in raw.get("vocab") if isinstance(raw.get("vocab"), list) else []:
         if isinstance(v, dict) and str(v.get("es", "")).strip() and str(v.get("en", "")).strip():
-            vocab.append({k: str(v.get(k, "")).strip() for k in ("es", "en", "example_es", "example_en")})
-
-    g = raw.get("grammar") if isinstance(raw.get("grammar"), dict) else {}
-    examples = [
-        {"es": str(x.get("es", "")).strip(), "en": str(x.get("en", "")).strip()}
-        for x in (g.get("examples") if isinstance(g.get("examples"), list) else [])
-        if isinstance(x, dict) and str(x.get("es", "")).strip()
-    ]
-    grammar = None
-    if str(g.get("point", "")).strip():
-        grammar = {"point": str(g["point"]).strip(), "explanation": str(g.get("explanation", "")).strip(), "examples": examples[:3]}
-
-    questions = []
-    for i, q in enumerate(raw.get("questions") if isinstance(raw.get("questions"), list) else []):
-        shaped = shape_quiz(q, salt=i)
-        if shaped:
-            questions.append(shaped)
+            vocab.append({k: str(v.get(k, "")).strip() for k in ("es", "en", "kind")})
 
     return {
         "level": level,
@@ -480,10 +455,7 @@ Give 8 vocab items, 2 grammar examples and 3 questions. "answer" is the index (0
         "title_es": str(raw.get("title_es", "")).strip(),
         "title_en": str(raw.get("title_en", "")).strip(),
         "paragraphs": paragraphs,
-        "vocab": vocab[:10],
-        "grammar": grammar,
-        "questions": questions[:4],
-        "try_it": str(raw.get("try_it", "")).strip(),
+        "vocab": vocab[:12],
     }
 
 
@@ -540,18 +512,11 @@ def sample_spanish():
              "en": "While I was having breakfast, I read the news on my phone. Then I walked to the university."},
         ],
         "vocab": [
-            {"es": "pequeño", "en": "small", "example_es": "Vivo en un pueblo pequeño.", "example_en": "I live in a small town."},
-            {"es": "desayunaba", "en": "I was having breakfast", "example_es": "Siempre desayunaba temprano.", "example_en": "I always had breakfast early."},
-            {"es": "caminé", "en": "I walked", "example_es": "Caminé una hora.", "example_en": "I walked for an hour."},
+            {"es": "pequeño", "en": "small", "kind": "adjective"},
+            {"es": "desayunaba", "en": "I was having breakfast (from desayunar)", "kind": "verb"},
+            {"es": "caminé", "en": "I walked (from caminar)", "kind": "verb"},
+            {"es": "tostada", "en": "piece of toast", "kind": "noun (f)"},
         ],
-        "grammar": {"point": "Pretérito indefinido and imperfecto",
-                    "explanation": "Placeholder explanation of when to use each past tense.",
-                    "examples": [{"es": "Mientras desayunaba, leí las noticias.", "en": "While I was having breakfast, I read the news."}]},
-        "questions": [
-            {"question": "¿Qué pidió en el café?", "options": ["Té", "Café con leche", "Jugo", "Agua"], "answer": 1, "explanation": "The text says it ordered a coffee with milk."},
-            {"question": "¿Adónde caminó después?", "options": ["Al trabajo", "Al parque", "A la universidad", "A casa"], "answer": 2, "explanation": "It walked to the university."},
-        ],
-        "try_it": "Write three sentences about your morning using today's words.",
     }
 
 
@@ -613,28 +578,65 @@ def build(args):
         "reading", lambda: summarise_reading(client, model, items["reading"]),
         {"top_line": "", "stories": raw_stories(items["reading"])},
     )
-    ml_topic = config.LEARNING_TOPICS[dt.datetime.now(TZ).date().toordinal() % len(config.LEARNING_TOPICS)]
-    sections["reading"]["card"], _ = run(
-        "the learning card", lambda: write_card(client, model, ml_topic),
-        sample_card() if args.sample else
-        {"title": ml_topic, "concept": "", "analogy": "", "remember": "", "quiz": None},
+
+    # Daily items: the learning card, the book of the day and the Spanish reading.
+    # Besides today's entry we also prepare the next few days, and the page shows the entry
+    # that matches the viewer's own date. So even if GitHub skips a scheduled run (it
+    # sometimes does), these three still change every single day.
+    today = dt.datetime.now(TZ).date()
+    days = [today + dt.timedelta(days=k) for k in range(max(1, config.LOOKAHEAD_DAYS))]
+
+    def many(label, make, fallback):
+        """One entry per day, generated in parallel. Returns (entries, today_ok)."""
+        def one(d):
+            if client is None:
+                return {"date": d.isoformat(), **fallback(d)}, False
+            try:
+                return {"date": d.isoformat(), **make(d)}, True
+            except Exception as exc:
+                msg = f"{label} for {d} failed ({exc})"
+                if d == today:
+                    warn(msg + "; showing a placeholder instead.")
+                else:
+                    log("  ! " + msg)
+                return {"date": d.isoformat(), **fallback(d)}, False
+
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            results = list(pool.map(one, days))
+        return [r[0] for r in results], results[0][1]
+
+    def ml_topic(d):
+        return config.LEARNING_TOPICS[d.toordinal() % len(config.LEARNING_TOPICS)]
+
+    sections["reading"]["cards"], ai_ok["card"] = many(
+        "The learning card",
+        lambda d: write_card(client, model, ml_topic(d), d),
+        lambda d: sample_card() if args.sample else
+        {"title": ml_topic(d), "concept": "", "analogy": "", "remember": "", "quiz": None},
     )
 
-    # Books: today's pick comes from the shelf in config.py; Claude writes the summary.
+    # Books: a random-looking pick from the shelf in config.py; Claude writes the summary.
     shelf = book_shelf()
-    pick = book_of_the_day(shelf)
-    book_extra, ai_ok["books"] = run(
-        "the book of the day", lambda: write_book(client, model, pick), sample_book() if args.sample else {}
+    book_days, ai_ok["books"] = many(
+        "The book summary",
+        lambda d: {**book_of_the_day(shelf, d), **write_book(client, model, book_of_the_day(shelf, d))},
+        lambda d: {**book_of_the_day(shelf, d), **(sample_book() if args.sample else {})},
     )
-    sections["books"] = {"top_line": "", "today": {**pick, **book_extra}, "shelf": shelf}
+    sections["books"] = {"days": book_days, "shelf": shelf}
 
-    # Spanish: one reading a day, rotating through the themes in config.py.
+    # Spanish: a fresh reading every day, rotating through the themes in config.py.
     level = config.SPANISH_LEVEL
-    theme = config.SPANISH_THEMES[dt.datetime.now(TZ).date().toordinal() % len(config.SPANISH_THEMES)]
-    sections["spanish"], ai_ok["spanish"] = run(
-        "the Spanish reading", lambda: write_spanish(client, model, level, theme),
-        sample_spanish() if args.sample else {"level": level, "theme": theme, "paragraphs": []},
+
+    def spanish_theme(d):
+        return config.SPANISH_THEMES[d.toordinal() % len(config.SPANISH_THEMES)]
+
+    spanish_days, ai_ok["spanish"] = many(
+        "The Spanish reading",
+        lambda d: write_spanish(client, model, level, spanish_theme(d)),
+        lambda d: sample_spanish() if args.sample else
+        {"level": level, "theme": spanish_theme(d), "paragraphs": []},
     )
+    sections["spanish"] = {"days": spanish_days}
 
     # Markets: prices first, then the model's commentary on them.
     symbols = list(config.INDICES.values()) + config.WATCHLIST
@@ -669,6 +671,7 @@ def build(args):
     return {
         "date_label": now.strftime("%A, %d %B %Y"),
         "generated_at": now.strftime("%H:%M"),
+        "built_date": now.strftime("%Y-%m-%d"),
         "generated_iso": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "summaries": ai_ok,
         "warnings": WARNINGS,

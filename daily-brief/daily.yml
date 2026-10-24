@@ -1,0 +1,75 @@
+name: Build daily brief
+
+on:
+  schedule:
+    - cron: "17 0 * * *"   # 00:17 UTC = 07:17 in Bangkok
+    - cron: "47 2 * * *"   # 02:47 UTC = 09:47 in Bangkok: backup in case GitHub skipped the first run
+  push:                     # rebuilds the page whenever you upload changed files
+    branches: [main]
+    paths:
+      - "daily-brief/**"
+      - ".github/workflows/daily.yml"
+  workflow_dispatch:        # lets you run it by hand from the Actions tab
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    defaults:
+      run:
+        working-directory: daily-brief
+    steps:
+      # The backup run does nothing if today's page is already live, so it costs nothing extra.
+      - name: Skip the backup run if today's page is already live
+        id: check
+        if: github.event_name == 'schedule' && github.event.schedule == '47 2 * * *'
+        working-directory: .
+        run: |
+          today=$(TZ=Asia/Bangkok date +%F)
+          url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          if curl -fsSL "$url" | grep -q "\"built_date\": \"$today\""; then
+            echo "Today's page ($today) is already live. Nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.skip != 'true'
+      - uses: actions/setup-python@v5
+        if: steps.check.outputs.skip != 'true'
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: daily-brief/requirements.txt
+      - run: pip install -r requirements.txt
+        if: steps.check.outputs.skip != 'true'
+      - name: Build the page
+        if: steps.check.outputs.skip != 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python build.py
+      - uses: actions/configure-pages@v5
+        if: steps.check.outputs.skip != 'true'
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.check.outputs.skip != 'true'
+        with:
+          path: daily-brief/docs
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

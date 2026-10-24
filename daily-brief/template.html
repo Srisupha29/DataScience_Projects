@@ -183,20 +183,12 @@ h3.group{font:800 1.5rem/1.2 var(--display);letter-spacing:-.02em;margin:3rem 0 
 .passage p.es{font:400 1.2rem/1.8 var(--text);margin:1rem 0 .3rem;max-width:40rem}
 .passage p.en{font:400 1rem/1.6 var(--text);color:var(--muted);margin:0 0 1rem;padding-left:1rem;border-left:4px solid var(--c);max-width:40rem}
 mark{background:var(--soft);color:inherit;border-bottom:2px solid var(--c);padding:0 .12em}
-.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:.7rem}
-.vcard{background:var(--soft);padding:.8rem .9rem}
-.vtop{display:flex;justify-content:space-between;gap:.5rem;align-items:center}
-.vword{font:800 1.1rem/1.3 var(--display);background:none;border:0;padding:0;color:var(--ink);cursor:pointer;text-align:left}
-.say{font:600 .8rem var(--display);border:1px solid var(--c);background:var(--bg);color:var(--ink);border-radius:.3rem;padding:.3rem .5rem;cursor:pointer}
-.vback{margin-top:.5rem;font:400 .95rem/1.5 var(--text)}
-.vback b{font:700 1rem var(--display)}
-.vback p{margin:.3rem 0 0}
-.vback em{color:var(--muted)}
-.gram{background:var(--soft);padding:1.2rem 1.3rem;border-left:5px solid var(--c)}
-.gram .gp{font:800 1.15rem var(--display);margin:0 0 .4rem}
-.gram p{margin:.4rem 0}
-.gram .ex{font-style:italic}
-.qs .quiz{margin:0 0 1.8rem}
+.vlist{list-style:none;margin:0;padding:0;max-width:40rem}
+.vitem{display:grid;grid-template-columns:minmax(6.5rem,10rem) 1fr auto;gap:.1rem 1rem;align-items:baseline;padding:.75rem 0;border-top:1px solid var(--rule)}
+.vw{grid-column:1;font:800 1.1rem/1.3 var(--display)}
+.vk{grid-column:1;grid-row:2;font:500 .8rem var(--display);color:var(--muted)}
+.ve{grid-column:2;grid-row:1 / span 2;font:400 1rem/1.5 var(--text)}
+.say{grid-column:3;grid-row:1;font:600 .8rem var(--display);border:1px solid var(--c);background:var(--bg);color:var(--ink);border-radius:.3rem;padding:.35rem .6rem;cursor:pointer}
 
 footer{padding:0 2.5rem 3.5rem;max-width:49rem;font:500 .85rem/1.5 var(--display);color:var(--muted)}
 
@@ -346,11 +338,48 @@ footer{padding:0 2.5rem 3.5rem;max-width:49rem;font:500 .85rem/1.5 var(--display
     return h('div', {class: 'quiz'}, h('p', {class: 'q'}, q.question), h('div', {class: 'opts'}, btns), fb);
   }
 
+  // ----- Day-by-day items. The build prepares today and the next few days, and the page shows
+  // the entry that matches the viewer's own date (Bangkok time), so these change every day
+  // even if a scheduled update is skipped. -----
+  function todayKey(){
+    try {
+      var o = {};
+      new Intl.DateTimeFormat('en-US', {timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit'})
+        .formatToParts(new Date()).forEach(function(p){ o[p.type] = p.value; });
+      return o.year + '-' + o.month + '-' + o.day;
+    } catch (err) { return null; }
+  }
+  function pickDay(list){
+    if (!list || !list.length) return null;
+    var sorted = list.slice().sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    var k = todayKey(), chosen = sorted[0];
+    if (k) sorted.forEach(function(e){ if (e.date <= k) chosen = e; });
+    return chosen;
+  }
+  function niceDate(iso){
+    try {
+      return new Intl.DateTimeFormat('en-GB', {timeZone: 'Asia/Bangkok', weekday: 'long', day: 'numeric', month: 'long'})
+        .format(new Date(iso + 'T12:00:00+07:00'));
+    } catch (err) { return iso; }
+  }
+  function dayNote(entry){
+    var k = todayKey(), text = niceDate(entry.date);
+    if (k && entry.date < k) text += '. This is the newest one on this page, because the daily update seems to have paused.';
+    return h('p', {class: 'fine'}, text);
+  }
+  function li(x){ return h('li', {}, x); }
+  function btn(label, fn, cls, aria){
+    var b = h('button', {type: 'button', class: cls || 'btn', 'aria-label': aria || null}, label);
+    b.addEventListener('click', fn);
+    return b;
+  }
+
   function card(c){
     if (!c || !c.title) return null;
     var hasText = !!(c.concept || c.analogy || c.remember || c.quiz);
     return h('div', {class: 'card'},
       h('h3', {}, c.title),
+      dayNote(c),
       !hasText && h('p', {class: 'muted'}, 'The explanation was not available today. Try searching this topic yourself and come back tomorrow for a new card.'),
       c.concept && h('p', {}, c.concept),
       c.analogy && h('p', {class: 'analogy'}, c.analogy),
@@ -360,11 +389,143 @@ footer{padding:0 2.5rem 3.5rem;max-width:49rem;font:500 .85rem/1.5 var(--display
 
   function reading(sec){
     var d = S.reading || {}, kids = [];
-    var c = card(d.card);
+    var c = card(pickDay(d.cards));
     if (c){ kids.push(group('Today’s learning card')); kids.push(c); }
     kids.push(group('Worth reading'));
     kids.push(stories(d.stories, 'reading'));
     return wrap(sec, d.top_line, kids);
+  }
+
+  function books(sec){
+    var d = S.books || {}, shelf = d.shelf || [], kids = [];
+    var t = pickDay(d.days) || {};
+    if (t.title){
+      kids.push(group('Book of the day'));
+      kids.push(h('div', {class: 'pick'},
+        h('span', {class: 'cat'}, t.category),
+        h('h3', {}, t.title),
+        h('p', {class: 'by'}, 'by ' + t.author),
+        h('p', {}, t.blurb),
+        t.summary ? [
+          h('h4', {}, 'What it argues'), h('p', {}, t.summary),
+          t.key_ideas && t.key_ideas.length ? [h('h4', {}, 'Key ideas'), h('ul', {}, t.key_ideas.map(li))] : null,
+          t.try_today ? [h('h4', {}, 'Try this today'), h('p', {}, t.try_today)] : null,
+          t.best_for ? [h('h4', {}, 'Best for'), h('p', {}, t.best_for)] : null,
+          t.worth_knowing ? [h('h4', {}, 'Worth knowing'), h('p', {}, t.worth_knowing)] : null,
+          h('p', {class: 'fine'}, 'Written by Claude from its general knowledge of the book, not from the text. Treat it as a starting point and check the book itself.')
+        ] : h('p', {class: 'muted'}, 'The detailed summary was not available today. The description above comes from the reading list.'),
+        dayNote(t)));
+    }
+    if (shelf.length){
+      kids.push(group('The reading list'));
+      var cats = [];
+      shelf.forEach(function(b){ if (cats.indexOf(b.category) < 0) cats.push(b.category); });
+      var items = shelf.map(function(b){
+        var isToday = b.title === t.title;
+        return h('li', {class: 'book' + (isToday ? ' today' : ''), 'data-cat': b.category},
+          h('b', {}, b.title), isToday ? h('span', {class: 'tg'}, 'Today') : null,
+          h('div', {class: 'au'}, b.author), h('p', {}, b.blurb));
+      });
+      var chips = ['All'].concat(cats).map(function(c){
+        var chip = h('button', {type: 'button', class: 'chip', 'aria-pressed': c === 'All' ? 'true' : 'false'}, c);
+        chip.addEventListener('click', function(){
+          chips.forEach(function(x){ x.setAttribute('aria-pressed', x === chip ? 'true' : 'false'); });
+          items.forEach(function(it){ it.hidden = !(c === 'All' || it.getAttribute('data-cat') === c); });
+        });
+        return chip;
+      });
+      kids.push(h('div', {class: 'chips', role: 'group', 'aria-label': 'Filter by topic'}, chips));
+      kids.push(h('ul', {class: 'shelf'}, items));
+    }
+    return wrap(sec, d.top_line, kids);
+  }
+
+  // ----- Spanish reading -----
+  var canSpeak = ('speechSynthesis' in window) && ('SpeechSynthesisUtterance' in window);
+  function speak(text, rate){
+    try {
+      speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = 'es-ES'; u.rate = rate || 1;
+      var voices = speechSynthesis.getVoices().filter(function(v){ return /^es/i.test(v.lang); });
+      if (voices.length) u.voice = voices[0];
+      speechSynthesis.speak(u);
+    } catch (err) {}
+  }
+  // Mark the first occurrence of each vocabulary word in a paragraph; hover shows the meaning.
+  function highlight(text, vocab){
+    var lower = text.toLowerCase(), spans = [];
+    vocab.forEach(function(v){
+      var w = (v.es || '').toLowerCase();
+      if (!w) return;
+      var from = 0, i;
+      while ((i = lower.indexOf(w, from)) !== -1){
+        var before = i > 0 ? lower.charAt(i - 1) : '', after = lower.charAt(i + w.length);
+        if (!/\p{L}/u.test(before) && !/\p{L}/u.test(after)){ spans.push({s: i, e: i + w.length, en: v.en}); break; }
+        from = i + 1;
+      }
+    });
+    spans.sort(function(a, b){ return a.s - b.s; });
+    var out = [], pos = 0;
+    spans.forEach(function(sp){
+      if (sp.s < pos) return;
+      if (sp.s > pos) out.push(text.slice(pos, sp.s));
+      out.push(h('mark', {title: sp.en}, text.slice(sp.s, sp.e)));
+      pos = sp.e;
+    });
+    if (pos < text.length) out.push(text.slice(pos));
+    return out;
+  }
+
+  function spanish(sec){
+    var p = pickDay((S.spanish || {}).days);
+    var paras = (p && p.paragraphs) || [];
+    if (!paras.length){
+      return wrap(sec, null, h('p', {class: 'empty'}, 'Today’s reading could not be written, so there is nothing to show yet. The yellow notice at the top of the page says why when that happens.'));
+    }
+    var vocab = p.vocab || [];
+    var allText = paras.map(function(x){ return x.es; }).join(' ');
+    var enEls = paras.map(function(x){ var e = h('p', {class: 'en'}, x.en); e.hidden = true; return e; });
+    var titleEn = h('p', {class: 'sub'}, p.title_en || '');
+    titleEn.hidden = true;
+    var toggle = h('button', {type: 'button', class: 'btn', 'aria-pressed': 'false'}, 'Show English');
+    toggle.addEventListener('click', function(){
+      var on = toggle.getAttribute('aria-pressed') !== 'true';
+      toggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+      toggle.textContent = on ? 'Hide English' : 'Show English';
+      enEls.forEach(function(e){ e.hidden = !on; });
+      titleEn.hidden = !on;
+    });
+    var tools = [toggle];
+    if (canSpeak){
+      tools.push(btn('Listen', function(){ speak(allText, 1); }));
+      tools.push(btn('Listen slowly', function(){ speak(allText, 0.7); }));
+      tools.push(btn('Stop', function(){ try { speechSynthesis.cancel(); } catch (err) {} }));
+    }
+    var passage = h('div', {class: 'passage'}, paras.map(function(x, i){
+      return [h('p', {class: 'es', lang: 'es'}, highlight(x.es, vocab)), enEls[i]];
+    }));
+    var kids = [
+      group('Today’s reading'),
+      h('div', {class: 'rhead'}, h('h3', {lang: 'es'}, p.title_es), p.level ? h('span', {class: 'lvl'}, p.level) : null),
+      titleEn,
+      p.theme ? h('p', {class: 'sub'}, 'Theme: ' + p.theme) : null,
+      h('div', {class: 'tools'}, tools),
+      passage,
+      dayNote(p)
+    ];
+    if (vocab.length){
+      kids.push(group('Vocabulary from this reading'));
+      kids.push(h('ul', {class: 'vlist'}, vocab.map(function(v){
+        return h('li', {class: 'vitem'},
+          h('span', {class: 'vw', lang: 'es'}, v.es),
+          v.kind ? h('span', {class: 'vk'}, v.kind) : null,
+          h('span', {class: 've'}, v.en),
+          canSpeak ? btn('Say', function(){ speak(v.es, 0.8); }, 'say', 'Hear ' + v.es) : null);
+      })));
+    }
+    kids.push(h('p', {class: 'fine'}, 'Written by Claude. The Spanish and the translations are usually accurate but can contain mistakes, so check anything you plan to memorise with a dictionary or your teacher.'));
+    return wrap(sec, null, kids);
   }
 
   function markets(sec){
@@ -429,7 +590,8 @@ footer{padding:0 2.5rem 3.5rem;max-width:49rem;font:500 .85rem/1.5 var(--display
     warn.append(h('div', {class: 'notice', role: 'status'}, data.warnings.map(function(w){ return h('p', {}, w); })));
   }
   SECTIONS.forEach(function(sec){
-    content.append(sec.id === 'markets' ? markets(sec) : sec.id === 'reading' ? reading(sec) : simple(sec));
+    var builders = {markets: markets, reading: reading, books: books, spanish: spanish};
+    content.append((builders[sec.id] || simple)(sec));
   });
 
   var nav = document.getElementById('nav');
