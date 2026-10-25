@@ -1,16 +1,16 @@
-
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+from utils.utils import PROCESSED_DIR
 
 TARGETS_FILE = PROCESSED_DIR / "phase24_modeling_targets.csv"
-EMBEDDINGS_FILE = PROCESSED_DIR / "phase24_headline_embeddings.npz"
+FOLDS_FILE = PROCESSED_DIR / "phase24_cv_folds.csv"
+BASELINE_FILE = PROCESSED_DIR / "phase24_pairwise_oof_predictions.csv"
 
+OUTPUT_FILE = PROCESSED_DIR / "phase24_embedding_ensemble_oof_predictions.csv"
+REPORT_FILE = PROCESSED_DIR / "phase24_embedding_ensemble_metrics.csv"
+
+EMBEDDINGS_FILE = PROCESSED_DIR / "phase24_headline_embeddings.npz"
 
 def normalize_ids(values):
     return pd.Series(values).astype(str).reset_index(drop=True)

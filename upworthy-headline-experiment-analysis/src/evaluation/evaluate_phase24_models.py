@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_auc_score
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 PREDICTIONS_PATH = ROOT / "data/processed/phase24_oof_predictions.csv"
 TARGETS_PATH = ROOT / "data/processed/phase24_modeling_targets.csv"

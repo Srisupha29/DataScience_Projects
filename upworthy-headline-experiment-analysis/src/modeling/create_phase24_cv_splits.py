@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 from sklearn.model_selection import StratifiedGroupKFold
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 INPUT_PATH = ROOT / "data/processed/phase24_modeling_features.csv"
 OUTPUT_PATH = ROOT / "data/processed/phase24_cv_folds.csv"

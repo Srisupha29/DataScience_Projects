@@ -1,23 +1,23 @@
 from itertools import combinations
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_auc_score
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+from utils.utils import PROCESSED_DIR
 
 TARGETS_FILE = PROCESSED_DIR / "phase24_modeling_targets.csv"
 FOLDS_FILE = PROCESSED_DIR / "phase24_cv_folds.csv"
 BASELINE_FILE = PROCESSED_DIR / "phase24_pairwise_oof_predictions.csv"
+
 OUTPUT_FILE = (
     PROCESSED_DIR / "phase24_embedding_ensemble_oof_predictions.csv"
 )
 REPORT_FILE = (
     PROCESSED_DIR / "phase24_embedding_ensemble_metrics.csv"
 )
+
+MIN_CTR_DIFFERENCE = 0.0005
 
 MIN_CTR_DIFFERENCE = 0.0005
 

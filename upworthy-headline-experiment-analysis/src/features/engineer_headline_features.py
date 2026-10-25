@@ -1,8 +1,9 @@
-from pathlib import Path
 import re
+from pathlib import Path
+
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 RAW_PATH = ROOT / "data/raw/upworthy-archive-exploratory-packages-03.12.2020.csv"
 OUTPUT_PATH = ROOT / "data/processed/headline_features.parquet"
 
@@ -44,7 +45,7 @@ pronoun_groups = {
 
 for feature, pattern in pronoun_groups.items():
     df[feature] = headline.apply(
-        lambda text: count_pattern(text, pattern)
+        lambda text, pattern=pattern: count_pattern(text, pattern)
     )
 
 df["contains_you_family"] = df["you_family_count"] > 0

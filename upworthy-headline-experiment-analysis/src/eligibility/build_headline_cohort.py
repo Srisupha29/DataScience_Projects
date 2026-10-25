@@ -1,5 +1,5 @@
-from pathlib import Path
 import duckdb
+
 from utils.utils import PROCESSED_DIR
 
 CANDIDATES_FILE = PROCESSED_DIR / "comparison_candidates.parquet"

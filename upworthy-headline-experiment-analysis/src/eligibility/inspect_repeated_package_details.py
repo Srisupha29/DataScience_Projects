@@ -3,7 +3,7 @@ from pathlib import Path
 
 import duckdb
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 COHORT = ROOT / "data/processed/headline_cohort.parquet"
 
 con = duckdb.connect()

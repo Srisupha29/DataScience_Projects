@@ -9,7 +9,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 FEATURE_PATH = ROOT / "data/processed/phase24_modeling_features.csv"
 TARGET_PATH = ROOT / "data/processed/phase24_modeling_targets.csv"

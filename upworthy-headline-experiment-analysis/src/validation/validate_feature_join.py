@@ -1,8 +1,8 @@
-
-from pathlib import Path
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
+from utils.utils import PROJECT_DIR
+
+ROOT = PROJECT_DIR
 
 FEATURE_PATH = ROOT / "data/processed/headline_features.parquet"
 CANDIDATE_PATH = ROOT / "data/processed/comparison_candidates.parquet"

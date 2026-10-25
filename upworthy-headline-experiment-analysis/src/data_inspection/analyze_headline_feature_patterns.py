@@ -2,7 +2,7 @@
 from pathlib import Path
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 FEATURE_PATH = ROOT / "data/processed/headline_features.parquet"
 CANDIDATE_PATH = ROOT / "data/processed/comparison_candidates.parquet"

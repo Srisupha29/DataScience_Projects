@@ -5,7 +5,7 @@ import pandas as pd
 from scipy.sparse import csr_matrix, hstack
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 TARGET_PATH = ROOT / "data/processed/phase24_modeling_targets.csv"
 FEATURE_PATH = ROOT / "data/processed/headline_features.parquet"

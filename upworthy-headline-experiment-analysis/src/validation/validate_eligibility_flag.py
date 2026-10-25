@@ -1,6 +1,11 @@
 import duckdb
+from utils.utils import (
+    EXPECTED_EXPERIMENTS,
+    EXPECTED_PACKAGE_ROWS,
+    PROCESSED_DIR,
+)
 
-FILE = "data/processed/comparison_candidates.parquet"
+FILE = PROCESSED_DIR / "comparison_candidates.parquet"
 con = duckdb.connect()
 
 try:
@@ -46,7 +51,7 @@ try:
 
             SUM(package_count) AS total_source_rows
         FROM read_parquet(?)
-    """, [FILE]).fetchone()
+    """, [str(FILE)]).fetchone()
 
     labels = [
         "Total experiments",
@@ -63,21 +68,21 @@ try:
     for label, value in zip(labels, result):
         print(f"{label}: {value}")
 
-    expected = {
-        "Total experiments": 4873,
-        "Unique experiment IDs": 4873,
-        "Eligible experiments": 2301,
-        "Ineligible experiments": 2572,
-        "Null flags": 0,
-        "Invalid TRUE flags": 0,
-        "Invalid FALSE flags": 0,
-        "Category mismatches": 0,
-        "Total source rows": 22666,
-    }
+    expected_values = [
+        EXPECTED_EXPERIMENTS,
+        EXPECTED_EXPERIMENTS,
+        2301,
+        EXPECTED_EXPERIMENTS - 2301,
+        0,
+        0,
+        0,
+        0,
+        EXPECTED_PACKAGE_ROWS,
+    ]
 
     failures = [
         f"{label}: got {actual}, expected {wanted}"
-        for label, actual, wanted in zip(labels, result, expected.values())
+        for label, actual, wanted in zip(labels, result, expected_values)
         if actual != wanted
     ]
 

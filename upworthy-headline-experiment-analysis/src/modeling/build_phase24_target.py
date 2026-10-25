@@ -1,15 +1,12 @@
-
 from pathlib import Path
+
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
-COMPARISON_PATH = (
-    ROOT / "data/processed/eligible_headline_variant_comparisons.csv"
-)
-PACKAGE_PATH = ROOT / "data/processed/packages.parquet"
-OUTPUT_PATH = ROOT / "data/processed/phase24_modeling_targets.csv"
-
+COMPARISON_PATH = ROOT / "data" / "processed" / "eligible_headline_variant_comparisons.csv"
+PACKAGE_PATH = ROOT / "data" / "processed" / "packages.parquet"
+OUTPUT_PATH = ROOT / "data" / "processed" / "phase24_modeling_targets.csv"
 comparisons = pd.read_csv(COMPARISON_PATH)
 packages = pd.read_parquet(PACKAGE_PATH)
 
