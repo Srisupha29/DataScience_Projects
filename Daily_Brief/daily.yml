@@ -7,7 +7,7 @@ on:
   push:                     # rebuilds the page whenever you upload changed files
     branches: [main]
     paths:
-      - "daily-brief/**"
+      - "Daily_Brief/**"
       - ".github/workflows/daily.yml"
   workflow_dispatch:        # lets you run it by hand from the Actions tab
 
@@ -27,7 +27,7 @@ jobs:
       skip: ${{ steps.check.outputs.skip }}
     defaults:
       run:
-        working-directory: daily-brief
+        working-directory: Daily_Brief
     steps:
       # The backup run does nothing if today's page is already live, so it costs nothing extra.
       - name: Skip the backup run if today's page is already live
@@ -59,7 +59,7 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         if: steps.check.outputs.skip != 'true'
         with:
-          path: daily-brief/docs
+          path: Daily_Brief/docs
 
   deploy:
     needs: build
