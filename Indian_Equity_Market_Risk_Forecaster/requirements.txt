@@ -1,0 +1,34 @@
+# Data manipulation and storage
+numpy
+pandas
+pyarrow
+duckdb
+
+# Market data
+yfinance
+requests
+
+# Visualization
+matplotlib
+seaborn
+plotly
+
+# Statistics and econometrics
+scipy
+statsmodels
+arch
+
+# Machine learning
+scikit-learn
+xgboost
+lightgbm
+
+# Portfolio analysis
+PyPortfolioOpt
+
+# Model explainability
+shap
+
+# Testing and Jupyter kernel
+pytest
+ipykernel
