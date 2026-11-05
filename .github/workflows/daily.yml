@@ -19,14 +19,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: daily-brief          # changed: run commands in the subfolder
+        working-directory: Daily_Brief          # changed: run commands in the subfolder
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: daily-brief/requirements.txt   # changed
+          cache-dependency-path: Daily_Brief/requirements.txt   # changed
       - run: pip install -r requirements.txt
       - name: Build the page
         env:
@@ -35,7 +35,7 @@ jobs:
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: daily-brief/docs                # changed: where the page is built
+          path: Daily_Brief/docs                # changed: where the page is built
     
   deploy:
     needs: build
