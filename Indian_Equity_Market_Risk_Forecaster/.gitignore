@@ -39,3 +39,12 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Raw datasets
+data/raw/
+
+# Generated processed datasets and audit reports
+notebooks/data/processed/
+
+# Preserve manually maintained documentation
+!notebooks/data/processed/*.md
