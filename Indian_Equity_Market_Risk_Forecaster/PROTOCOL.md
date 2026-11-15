@@ -411,3 +411,40 @@ The following rules are mandatory:
 10. Report unsuccessful experiments and limitations transparently.
 
 **Research principle:** The objective is to determine whether the models provide measurable forecasting and risk-management value, not to demonstrate that machine learning must outperform statistical baselines.
+
+##  11. Notes - Data Limitations
+
+### JIOFIN — Listing History and Feature Warm-up Limitation
+
+**Observation**
+
+JIOFIN entered the dataset on 21 August 2023, substantially later than the other NIFTY 50 constituents. Consequently, it has no observations in validation folds 1–3, which precede its available listing history.
+
+During validation, additional unavailable naive-baseline predictions were identified:
+
+| Horizon | Fold | Unavailable observations | Cause |
+|---|---:|---:|---|
+| 5D | 4 | 6 | `Hist_Vol_5D` warm-up |
+| 21D | 4 | 14 | `Hist_Vol_21D` warm-up |
+| 21D | 5 | 8 | `Hist_Vol_21D` warm-up |
+
+Inspection confirmed that:
+- Feature and target dates matched (`_merge = both`).
+- Forward volatility targets were available for all affected observations.
+- Missing values were confined to historical-volatility features because insufficient prior return observations were available.
+
+**Decision**
+
+- Retain JIOFIN in the frozen 50-stock universe.
+- Do not impute unavailable historical-volatility features.
+- Do not remove the ticker or modify validation boundaries.
+- Exclude observations where the baseline prediction or target is unavailable.
+- Evaluate each ticker using its available valid observations and report observation counts alongside performance metrics.
+
+**Validation implication**
+
+The evaluation panel is unbalanced across stocks because constituent listing histories differ. Baseline comparisons must use valid prediction-target pairs, and coverage should be reported by ticker and forecast horizon.
+
+**Calendar diagnostic note**
+
+Do not use `pd.bdate_range()` as the expected NSE trading calendar. It includes weekdays on which the NSE is closed, so apparent missing dates from this comparison may simply be exchange holidays rather than missing market data.
