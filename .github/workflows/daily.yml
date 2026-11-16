@@ -32,11 +32,13 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python build.py
+      - name: Add the study hub
+        run: cp -r ../study-hub docs/study-hub
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: Daily_Brief/docs                # changed: where the page is built
-    
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
