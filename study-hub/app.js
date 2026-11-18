@@ -7,11 +7,11 @@
     sql:     { name: 'SQL',              color: '#0B7F77', on: '#FFFFFF' },
     llm:     { name: 'LLMs and AI',      color: '#D6303A', on: '#FFFFFF' },
     python:  { name: 'Python',           color: '#F2B01E', on: '#1A1405' },
-    powerbi: { name: 'Power BI',         color: '#1F7A4D', on: '#FFFFFF' }
+    powerbi: { name: 'Power BI',         color: '#1F7A4D', on: '#FFFFFF' },
+    mlmath:  { name: 'Math for ML',      color: '#E8590C', on: '#FFFFFF' }
   };
-  var ORDER = ['ml', 'stats', 'sql', 'llm', 'python', 'powerbi'];
+  var ORDER = ['ml', 'stats', 'sql', 'llm', 'python', 'powerbi', 'mlmath'];
   var LEVELS = { 1: 'Easier', 2: 'Medium', 3: 'Harder' };
-  var PASS_MARK = 2;
   var MAX_SWAPS = 2;
   var RETRY_UNSURE_DAYS = 2;
   var RETRY_FAIL_DAYS = 3;
@@ -88,7 +88,7 @@
   function pickTopic(exclude) {
     var day = today();
     var ex = exclude || [];
-    var pool = TOPICS.filter(function (t) { return ex.indexOf(t.id) < 0 && isEligible(t, day); });
+    var pool = TOPICS.filter(function (t) { return ex.indexOf(t.id) < 0 && !t.deep && isEligible(t, day); });
     if (!pool.length) return null;
 
     if (state.lowEnergy) {
@@ -109,6 +109,28 @@
       var items = pool.filter(function (t) { return t.area === ORDER[idx]; });
       if (items.length) {
         state.rot = (idx + 1) % ORDER.length;
+        return items[0];
+      }
+    }
+    return pool[0];
+  }
+
+  function pickDeep(exclude) {
+    var day = today();
+    var ex = exclude || [];
+    var pool = TOPICS.filter(function (t) { return t.deep && ex.indexOf(t.id) < 0 && isEligible(t, day); });
+    if (!pool.length) return null;
+    var due = pool.filter(function (t) {
+      var s = state.topics[t.id];
+      return s && s.status === 'retry';
+    });
+    if (due.length) return due[0];
+    var start = state.deepRot || 0;
+    for (var i = 0; i < ORDER.length; i++) {
+      var idx = (start + i) % ORDER.length;
+      var items = pool.filter(function (t) { return t.area === ORDER[idx]; });
+      if (items.length) {
+        state.deepRot = (idx + 1) % ORDER.length;
         return items[0];
       }
     }
@@ -152,6 +174,9 @@
 
   function renderCard() {
     var t = byId[state.todayId];
+    if (!t && TOPICS.some(function (x) { return x.deep && isEligible(x, today()); })) {
+      return '<section class="card empty"><h2>Regular topics are done</h2><p>Press Deep dive for a longer topic.</p></section>';
+    }
     if (!t) {
       return '<section class="card empty"><h2>Every topic is mastered</h2>' +
         '<p>You have passed all the topics in this set. Add more topics in the data folder and they will show up here.</p></section>';
@@ -161,7 +186,7 @@
     var src = t.res.src === 'datacamp' ? 'DataCamp' : 'Free';
     var html = '<article class="card" ' + bandStyle(t.area) + '>' +
       '<div class="band"><p class="area">' + esc(a.name) + '</p><h2>' + esc(t.title) + '</h2>' +
-      '<ul class="meta"><li>' + t.mins + ' min</li><li>' + LEVELS[t.level] + '</li>' + (t.light ? '<li>Light</li>' : '') + '</ul></div>' +
+      '<ul class="meta"><li>' + t.mins + ' min</li><li>' + LEVELS[t.level] + '</li>' + (t.light ? '<li>Light</li>' : '') + (t.deep ? '<li>Deep dive</li>' : '') + '</ul></div>' +
       '<div class="body">' +
       '<div class="block"><h3>Study this</h3><a class="res" href="' + esc(t.res.url) + '" target="_blank" rel="noopener">' + esc(t.res.label) + '</a><span class="src">' + src + '</span></div>' +
       '<div class="block"><h3>Say it aloud in 2 minutes</h3><p>' + esc(t.aloud) + '</p></div>' +
@@ -280,7 +305,7 @@
     var t = quiz.topic;
     var total = quiz.items.length;
     var score = quiz.score;
-    var passed = score >= PASS_MARK;
+    var passed = score >= Math.ceil(total * 2 / 3);
     var message;
     if (passed) {
       state.topics[t.id] = { status: 'mastered', date: today() };
@@ -338,6 +363,10 @@
           if (t) setToday(t); else notify('No lighter topic left. Keeping today’s topic.');
         }
       }
+    } else if (action === 'deep') {
+      var dt = pickDeep(state.shown);
+      view = 'card';
+      if (dt) setToday(dt); else notify('No other deep dive is available right now.');
     } else if (action === 'done') {
       startQuiz();
     } else if (action === 'unsure') {

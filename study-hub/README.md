@@ -24,7 +24,8 @@ To try it on your laptop first, open `index.html` in a browser. It works without
 - **Done, check me** starts a 3-question quiz. Get 2 of 3 and the topic is mastered. Miss it and the topic comes back in 3 days.
 - **Not sure yet** brings the topic back in 2 days, with no quiz.
 - **Give me another** swaps the topic (2 per day). **Low energy** switches to a lighter topic and does not use a swap.
-- Topics rotate through ML, statistics, SQL, LLMs and AI, Python and Power BI.
+- Topics rotate through ML, statistics, SQL, LLMs and AI, Python, Power BI and Math for ML.
+- **Deep dive** (button at the top) gives one long topic of 60-90 minutes with a 5-question quiz. Pass with 4 of 5. Deep dives never appear in the daily rotation, so use the button on a day with more time.
 
 ## Your progress
 
@@ -47,9 +48,9 @@ Topics live in the `data` folder, one file per subject. Each topic looks like th
   interviewQ: "An interview-style question.",
   quiz: [
     { q: "Question text?", options: ["A", "B", "C", "D"], answer: 1, why: "Why the answer is right." }
-    // exactly 3 questions; answer is the position of the right option, starting at 0
+    // exactly 3 questions (5 for a deep dive); answer is the position of the right option, starting at 0
   ]
 }
 ```
 
-Areas are `stats`, `ml`, `sql`, `llm`, `python` and `powerbi`. Set `light: true` for short, easier topics that the Low energy button can pick.
+Areas are `stats`, `ml`, `sql`, `llm`, `python`, `powerbi` and `mlmath`. Add `deep: true` for a deep dive (60-90 minutes, exactly 5 quiz questions). Set `light: true` for short, easier topics that the Low energy button can pick.

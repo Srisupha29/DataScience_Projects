@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Study today</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div>
+        <h1>Study today</h1>
+        <p class="date" id="date"></p>
+      </div>
+      <div class="chips">
+        <button class="chip" id="deepDive" data-action="deep">Deep dive</button>
+        <button class="chip" id="lowEnergy" data-action="low-energy" aria-pressed="false">Low energy</button>
+      </div>
+    </header>
+
+    <p class="notice" id="notice" role="status" aria-live="polite"></p>
+
+    <main id="main"></main>
+
+    <section class="progress" id="progress" aria-label="Progress"></section>
+
+    <footer class="tools">
+      <button class="link" data-action="export">Export backup</button>
+      <button class="link" data-action="import">Import backup</button>
+      <button class="link" data-action="copy-flags" id="flagBtn">Copy flagged questions</button>
+      <input type="file" id="importFile" accept="application/json" hidden>
+    </footer>
+  </div>
+
+  <script src="data/stats.js"></script>
+  <script src="data/ml.js"></script>
+  <script src="data/sql.js"></script>
+  <script src="data/llm.js"></script>
+  <script src="data/python.js"></script>
+  <script src="data/powerbi.js"></script>
+  <script src="data/stats2.js"></script>
+  <script src="data/ml2.js"></script>
+  <script src="data/mlmath.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
